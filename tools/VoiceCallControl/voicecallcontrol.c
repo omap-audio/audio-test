@@ -23,7 +23,8 @@
 
 /*#define VERSION "0.1" initial version */
 /*#define VERSION "0.2" Update to support TinyAlsa */
-#define VERSION "0.3" /* Update to ICS Nexus Prime */
+/*#define VERSION "0.3" Update to ICS Nexus Prime */
+#define VERSION "0.4" /* Update to ICS OMAP5 */
 
 #include <errno.h>
 #include <ctype.h>
@@ -101,10 +102,11 @@ char *alsaControlCommandName = "alsa_amixer";
 #endif
 char *powerLevel = "Low";
 char *volume = "110";
-char *distro = "ICS";
+char *distro = "ICS_OMAP4";
+char mcbsp2DLB = 0;
+char *omapconfPath = "";
 /* -----------------------------------------------------*/
-
-const struct audioConfig handsetAudioConfig_GB[] = {
+const struct audioConfig handsetAudioConfig_GB_OMAP4[] = {
 	/* Downlink */
 		/* TWL6040 */
 		{"HS Left Playback",			"off"},
@@ -141,7 +143,7 @@ const struct audioConfig handsetAudioConfig_GB[] = {
 		{ "eof", ""},
 };
 
-const struct audioConfig handfreeAudioConfig_GB[] = {
+const struct audioConfig handfreeAudioConfig_GB_OMAP4[] = {
 	/* Downlink */
 		/* TWL6040 */
 		{"Earphone Driver Switch",		"off"},
@@ -175,7 +177,7 @@ const struct audioConfig handfreeAudioConfig_GB[] = {
 		{ "eof", ""},
 };
 
-const struct audioConfig headsetAudioConfig_GB[] = {
+const struct audioConfig headsetAudioConfig_GB_OMAP4[] = {
 	/* Downlink */
 		/* TWL6040 */
 		{"Earphone Driver Switch",		"off"},
@@ -212,7 +214,7 @@ const struct audioConfig headsetAudioConfig_GB[] = {
 		{ "eof", ""},
 };
 
-const struct audioConfig offAudioConfig_GB[] = {
+const struct audioConfig offAudioConfig_GB_OMAP4[] = {
 	/* Downlink */
 		/* TWL6040 */
 		{"Earphone Driver Switch",		"off"},
@@ -249,7 +251,7 @@ const struct audioConfig offAudioConfig_GB[] = {
 		{ "eof", ""},
 };
 
-const struct audioConfig handsetAudioConfig_ICS[] = {
+const struct audioConfig handsetAudioConfig_ICS_OMAP4[] = {
 	/* Downlink */
 		/* TWL6040 */
 		{"HS Left Playback",			"Off"},
@@ -285,7 +287,7 @@ const struct audioConfig handsetAudioConfig_ICS[] = {
 		{ "eof", ""},
 };
 
-const struct audioConfig handfreeAudioConfig_ICS[] = {
+const struct audioConfig handfreeAudioConfig_ICS_OMAP4[] = {
 	/* Downlink */
 		/* TWL6040 */
 		{"Earphone Enable Switch",		"Off"},
@@ -316,7 +318,7 @@ const struct audioConfig handfreeAudioConfig_ICS[] = {
 		{ "eof", ""},
 };
 
-const struct audioConfig headsetAudioConfig_ICS[] = {
+const struct audioConfig headsetAudioConfig_ICS_OMAP4[] = {
 	/* Downlink */
 		/* TWL6040 */
 		{"Earphone Enable Switch",		"Off"},
@@ -352,7 +354,7 @@ const struct audioConfig headsetAudioConfig_ICS[] = {
 		{ "eof", ""},
 };
 
-const struct audioConfig offAudioConfig_ICS[] = {
+const struct audioConfig offAudioConfig_ICS_OMAP4[] = {
 	/* Downlink */
 		/* TWL6040 */
 		{"Earphone Enable Switch",		"Off"},
@@ -362,6 +364,144 @@ const struct audioConfig offAudioConfig_ICS[] = {
 		{"Headset Playback Volume",		"0"},
 		{"HF Left Playback",			"Off"},
 		{"HF Right Playback",			"Off"},
+		{"Handsfree Playback Volume",		"0"},
+		/* ABE */
+		{"DL1 PDM Switch",			"Off"},
+		{"Sidetone Mixer Playback",		"Off"},
+		{"SDT DL Volume",			"0"},
+		{"DL1 Mixer Voice",			"Off"},
+		{"DL1 Voice Playback Volume",		"0"},
+	/* Uplink */
+		/* TWL6040 */
+		{"Analog Left Capture Route",		"Off"},
+		{"Analog Right Capture Route",		"Off"},
+		{"Capture Preamplifier Volume",		"Off"},
+		{"Capture Volume",			"Off"},
+		/* ABE */
+		{"MUX_VX0",				"None"},
+		{"MUX_VX1",				"None"},
+		{"AUDUL Voice UL Volume",		"0"},
+		{"Voice Capture Mixer Capture",		"Off"},
+	/* Sidetone */
+		{"Sidetone Mixer Capture",		"Off"},
+		{"SDT UL Volume",			"0"},
+	/* eof */
+		{ "eof", ""},
+};
+
+const struct audioConfig handsetAudioConfig_ICS_OMAP5[] = {
+	/* Downlink */
+		/* TWL6040 */
+		{"Headset Left Playback",		"Off"},
+		{"Headset Right Playback",		"Off"},
+		{"Headset Playback Volume",		"0"},
+		{"Handsfree Left Playback",		"Off"},
+		{"Handsfree Right Playback",		"Off"},
+		{"Handsfree Playback Volume",		"0"},
+		{"Earphone Playback Switch",		"On"},
+		{"Earphone Playback Volume",		"13"},
+		/* ABE */
+		{"DL1 PDM Switch",			"On"},
+		{"DL1 Equalizer",			"4Khz LPF   0dB"},
+		{"Sidetone Mixer Playback",		"On"},
+		{"SDT DL Volume",			"120"},
+		{"DL1 Mixer Voice",			"On"},
+		{"DL1 Voice Playback Volume",		"110"},
+	/* Uplink */
+		/* TWL6040 */
+		{"Analog Left Capture Route",		"Main Mic"},
+		{"Analog Right Capture Route",		"Sub Mic"},
+		{"Capture Preamplifier Volume",		"1"},
+		{"Capture Volume",			"4"},
+		/* ABE */
+		{"MUX_VX0",				"AMic0"},
+		{"MUX_VX1",				"AMic1"},
+		{"AMIC UL Volume",			"120"},
+		{"Voice Capture Mixer Capture",		"On"},
+	/* Sidetone */
+		{"Sidetone Mixer Capture",		"On"},
+		{"SDT UL Volume",			"90"},
+	/* eof */
+		{ "eof", ""},
+};
+
+const struct audioConfig handfreeAudioConfig_ICS_OMAP5[] = {
+	/* Downlink */
+		/* TWL6040 */
+		{"Earphone Playback Switch",		"Off"},
+		{"Earphone Playback Volume",		"0"},
+		{"Headset Left Playback",		"Off"},
+		{"Headset Right Playback",		"Off"},
+		{"Headset Playback Volume",		"0"},
+		{"Handsfree  Left Playback",		"HF DAC"},
+		{"Handsfree  Right Playback",		"HF DAC"},
+		{"Handsfree Playback Volume",		"23"},
+		/* ABE */
+		{"DL2 Left Equalizer",			"High-pass 0dB"},
+		{"DL2 Right Equalizer",			"High-pass 0dB"},
+		{"DL2 Mixer Voice",			"On"},
+		{"DL2 Voice Playback Volume",		"110"},
+	/* Uplink */
+		/* TWL6040 */
+		{"Analog Left Capture Route",		"Main Mic"},
+		{"Analog Right Capture Route",		"Sub Mic"},
+		{"Capture Preamplifier Volume",		"1"},
+		{"Capture Volume",			"4"},
+		/* ABE */
+		{"MUX_VX0",				"AMic0"},
+		{"MUX_VX1",				"AMic1"},
+		{"AUDUL Voice UL Volume",		"120"},
+		{"Voice Capture Mixer Capture",		"On"},
+	/* eof */
+		{ "eof", ""},
+};
+
+const struct audioConfig headsetAudioConfig_ICS_OMAP5[] = {
+	/* Downlink */
+		/* TWL6040 */
+		{"Earphone Playback Switch",		"Off"},
+		{"Earphone Playback Volume",		"0"},
+		{"Handsfree Left Playback",		"Off"},
+		{"Handsfree Right Playback",		"Off"},
+		{"Handsfree Playback Volume",		"0"},
+		{"Headset Left Playback",		"HS DAC"},
+		{"Headset Right Playback",		"HS DAC"},
+		{"Headset Playback Volume",		"13"},
+		/* ABE */
+		{"DL1 PDM Switch",			"On"},
+		{"DL1 Equalizer",			"4Khz LPF   0dB"},
+		{"Sidetone Mixer Playback",		"On"},
+		{"SDT DL Volume",			"120"},
+		{"DL1 Mixer Voice",			"On"},
+		{"DL1 Voice Playback Volume",		"110"},
+	/* Uplink */
+		/* TWL6040 */
+		{"Analog Left Capture Route",		"Headset Mic"},
+		{"Analog Right Capture Route",		"Headset Mic"},
+		{"Capture Preamplifier Volume",		"1"},
+		{"Capture Volume",			"4"},
+		/* ABE */
+		{"MUX_VX0",				"AMic0"},
+		{"MUX_VX1",				"AMic1"},
+		{"AUDUL Voice UL Volume",		"120"},
+		{"Voice Capture Mixer Capture",		"On"},
+	/* Sidetone */
+		{"Sidetone Mixer Capture",		"On"},
+		{"SDT UL Volume",			"90"},
+	/* eof */
+		{ "eof", ""},
+};
+
+const struct audioConfig offAudioConfig_ICS_OMAP5[] = {
+	/* Downlink */
+		/* TWL6040 */
+		{"Earphone Playback Switch",		"Off"},
+		{"Earphone Playback Volume",		"0"},
+		{"Headset Left Playback",		"Off"},
+		{"Headset Right Playback",		"Off"},
+		{"Headset Playback Volume",		"0"},
+		{"Handsfree Left Playback",		"Off"},
+		{"Handsfree Right Playback",		"Off"},
 		{"Handsfree Playback Volume",		"0"},
 		/* ABE */
 		{"DL1 PDM Switch",			"Off"},
@@ -399,14 +539,15 @@ static void show_help(void)
 		   "  -D, --device=NAME		select PCM by name (default hw:0,5 for ALSA, 5 for TinyAlsa)\n"
 		   "  -c, --channels=#		channels (default 2)\n"
 		   "  -p, --power=NAME		select power level (Low or High, default=Low)\n"
-		   "  -i, --distro=DISTRIBUTION	select distro supported (GB, ICS, default=ICS)\n"
+		   "  -i, --distro=DISTRIBUTION	select distro supported (GB_OMAP4, ICS_OMAP4, ICS_OMAP5, default=ICS_OMAP4)\n"
 #ifdef TINYALSA
 		   "  -s, --sidetone=#		enable(1)/disable(0) sidetone (default=1)");
 #else
 		   "  -s, --sidetone=#		enable(1)/disable(0) sidetone (default=1)\n"
-		   "  -C, --command=NAME		select amixer command name");
-
+		   "  -C, --command=NAME		select amixer command name\n"
 #endif
+		   "  -l, --loop=#			enable McBSP2 digital loop (!!!! need omapconf)\n"
+		   "  -o, --omapconf=PATH		omapconf path");
 	puts("Debugging options:\n"
 		   "  -d, --debug			toggle debugging trace\n");
 }
@@ -438,9 +579,9 @@ void initSig(void)
 static void parse_options(int argc, char *argv[])
 {
 #ifdef TINYALSA
-	static const char short_options[] = "hvm:V:r:D:c:p:s:d";
+	static const char short_options[] = "hvm:V:r:D:c:p:i:s:dlo:";
 #else
-	static const char short_options[] = "hvm:V:r:D:c:p:i:s:C:d";
+	static const char short_options[] = "hvm:V:r:D:c:p:i:s:C:dlo:";
 #endif
 	static const struct option long_options[] = {
 		{ .name = "help", .val = 'h' },
@@ -456,6 +597,8 @@ static void parse_options(int argc, char *argv[])
 #ifndef TINYALSA
 		{ .name = "command", .has_arg = 1, .val = 'C' },
 #endif
+		{ .name = "loop", .val = 'l' },
+		{ .name = "omapconf", .has_arg = 1, .val = 'o' },
 		{ .name = "debug", .val = 'd' },
 		{ .name = ""}
 	};
@@ -507,8 +650,9 @@ static void parse_options(int argc, char *argv[])
 			powerLevel = optarg;
 			break;
 		case 'i':
-			if ((!strcmp(optarg, "GB")) ||
-			    (!strcmp(optarg, "ICS")))
+			if ((!strcmp(optarg, "GB_OMAP4")) ||
+			    (!strcmp(optarg, "ICS_OMAP4")) ||
+			    (!strcmp(optarg, "ICS_OMAP5")))
 				distro = optarg;
 			else {
 				fprintf(stderr, "unknown distro: %s\n", optarg);
@@ -523,6 +667,12 @@ static void parse_options(int argc, char *argv[])
 			alsaControlCommandName = optarg;
 			break;
 #endif
+		case 'l':
+			mcbsp2DLB = 1;
+			break;
+		case 'o':
+			omapconfPath = optarg;
+			break;
 		default:
 			fprintf(stderr, "unknown option: %c\n", option);
 fail:
@@ -738,6 +888,40 @@ int stopPcm(void)
 	return error;
 }
 
+int setMcbsp2DLB(void)
+{
+	char command[COMMAND_SIZE];
+
+	if (mcbsp2DLB) {
+		if (strlen(omapconfPath))
+		    sprintf(command, "%s/omapconf set 0x401240AC 5", omapconfPath);
+		else
+		    sprintf(command, "omapconf set 0x401240AC 5");
+		DEBUG("%s: system call: '%s'\n", __FUNCTION__, &command[0]);
+#ifndef HOSTMODE
+		return system(&command[0]);
+#endif
+	}
+	return 0;
+}
+
+int resetMcbsp2DLB(void)
+{
+	char command[COMMAND_SIZE];
+
+	if (mcbsp2DLB) {
+		if (strlen(omapconfPath))
+			sprintf(command, "%s/omapconf clear 0x401240AC 5", omapconfPath);
+		else
+			sprintf(command, "omapconf clear 0x401240AC 5");
+		DEBUG("%s: system call: '%s'\n", __FUNCTION__, &command[0]);
+#ifndef HOSTMODE
+		return system(&command[0]);
+#endif
+	}
+	return 0;
+}
+
 int main(int argc ,char *argv[])
 {
 	int error = 0;
@@ -759,7 +943,8 @@ int main(int argc ,char *argv[])
 	initSig();
 	parse_options(argc, argv);
 
-	DEBUG("audio mode chosen: %d\n", mode);
+	DEBUG("audio mode chosen: %d-%s\n", mode, distro);
+
 #ifndef TINYALSA
 #ifndef HOSTMODE
 	SND_ERROR_EXIT(snd_lib_error_set_handler(&ALSAErrorHandler));
@@ -775,44 +960,59 @@ int main(int argc ,char *argv[])
 #endif
 	switch (mode) {
 		case HANDSET:
-			if (!strcmp(distro, "GB")) {
-				SND_ERROR_EXIT(setAudioConfig(handsetAudioConfig_GB));
-			} else if (!strcmp(distro, "ICS")) {
-				SND_ERROR_EXIT(setAudioConfig(handsetAudioConfig_ICS));
+			if (!strcmp(distro, "GB_OMAP4")) {
+				SND_ERROR_EXIT(setAudioConfig(handsetAudioConfig_GB_OMAP4));
+			} else if (!strcmp(distro, "ICS_OMAP4")) {
+				SND_ERROR_EXIT(setAudioConfig(handsetAudioConfig_ICS_OMAP4));
+			} else if (!strcmp(distro, "ICS_OMAP5")) {
+				SND_ERROR_EXIT(setAudioConfig(handsetAudioConfig_ICS_OMAP5));
 			}
 			break;
 		case HANDFREE:
-			if (!strcmp(distro, "GB")) {
-				SND_ERROR_EXIT(setAudioConfig(handfreeAudioConfig_GB));
-			} else if (!strcmp(distro, "ICS")) {
-				SND_ERROR_EXIT(setAudioConfig(handfreeAudioConfig_ICS));
+			if (!strcmp(distro, "GB_OMAP4")) {
+				SND_ERROR_EXIT(setAudioConfig(handfreeAudioConfig_GB_OMAP4));
+			} else if (!strcmp(distro, "ICS_OMAP4")) {
+				SND_ERROR_EXIT(setAudioConfig(handfreeAudioConfig_ICS_OMAP4));
+			} else if (!strcmp(distro, "ICS_OMAP5")) {
+				SND_ERROR_EXIT(setAudioConfig(handfreeAudioConfig_ICS_OMAP5));
 			}
 			break;
 		case HEADSET:
-			if (!strcmp(distro, "GB")) {
-				SND_ERROR_EXIT(setAudioConfig(headsetAudioConfig_GB));
-			} else if (!strcmp(distro, "ICS")) {
-				SND_ERROR_EXIT(setAudioConfig(headsetAudioConfig_ICS));
+			if (!strcmp(distro, "GB_OMAP4")) {
+				SND_ERROR_EXIT(setAudioConfig(headsetAudioConfig_GB_OMAP4));
+			} else if (!strcmp(distro, "ICS_OMAP4")) {
+				SND_ERROR_EXIT(setAudioConfig(headsetAudioConfig_ICS_OMAP4));
+			} else if (!strcmp(distro, "ICS_OMAP5")) {
+				SND_ERROR_EXIT(setAudioConfig(headsetAudioConfig_ICS_OMAP5));
 			}
 			break;
 		default:
 			fprintf(stderr, "unknown audio mode: %c\n", mode);
 			exit(EXIT_FAILURE);
 	}
+
 	SND_ERROR_EXIT(startPcm());
 
+	SND_ERROR_EXIT(setMcbsp2DLB());
+
 	puts("Audio Voice Call on...\n");
+
 	while(!terminate) {
 		sleep(1);
 	}
 
 	SND_ERROR_EXIT(stopPcm());
-	if (!strcmp(distro, "GB")) {
-		SND_ERROR_EXIT(setAudioConfig(offAudioConfig_GB));
-	} else if (!strcmp(distro, "ICS")) {
-		SND_ERROR_EXIT(setAudioConfig(offAudioConfig_ICS));
+
+	if (!strcmp(distro, "GB_OMAP4")) {
+		SND_ERROR_EXIT(setAudioConfig(offAudioConfig_GB_OMAP4));
+	} else if (!strcmp(distro, "ICS_OMAP4")) {
+		SND_ERROR_EXIT(setAudioConfig(offAudioConfig_ICS_OMAP4));
+	} else if (!strcmp(distro, "ICS_OMAP5")) {
+		SND_ERROR_EXIT(setAudioConfig(offAudioConfig_ICS_OMAP5));
 	}
+
+	SND_ERROR_EXIT(resetMcbsp2DLB());
+
 	puts("Audio Voice Call off\n");
 	exit(EXIT_SUCCESS);
 }
-
