@@ -64,11 +64,26 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
-
-#define NUM_COEFFS(x)	(sizeof(x[0]) / sizeof(x[0][0]))
-#define NUM_PROFILES(x)	(sizeof(x) / sizeof(x[0]))
+#include <dlfcn.h>
 
 #include "socfw.h"
+
+struct soc_fw_priv {
+	/* DAPM object */
+	char *dapm_name;
+	void *dapm_handle;
+	struct soc_dapm_plugin *dapm_object;
+
+	char *control_object;
+
+	/* opaque vendor data */
+	char *vendor_fw;
+	char *vendor;
+
+	/* out file */
+	char *outfile;
+	int out_fd;
+};
 
 static void usage(char *name)
 {
@@ -83,23 +98,50 @@ static void usage(char *name)
 	exit(0);
 }
 
+static void load_graph(struct soc_fw_priv *soc_fw)
+{
 
-/* OMAP4 ABE Firmware Generation too.
- *
- * Firmware and coefficients are generated using this tool.
- * 
- * Header is at offset 0x0. Coefficients are appended to the end of the header.
- * Firmware is appended to the end of the coefficients.
- */
+	soc_fw->dapm_handle = dlopen(soc_fw->dapm_name, RTLD_LAZY);
+	if (!soc_fw->dapm_handle) {
+		printf("error: failed to open %s\n", soc_fw->dapm_name);
+		exit(-EINVAL);
+	}
+
+
+	soc_fw->dapm_object = dlsym(soc_fw->dapm_handle, "dapm_plugin");
+	if (!soc_fw->dapm_object) {
+		printf("error: failed to get symbol\n");
+		exit(-EINVAL);
+	}
+
+	printf("dapm: loaded %s\n", soc_fw->dapm_name);
+	if (soc_fw->dapm_object->graph_count > 0)
+		printf(" dapm: found graph with %d routes\n",
+			soc_fw->dapm_object->graph_count);
+	else
+		printf(" dapm: no graph found\n");
+
+	if (soc_fw->dapm_object->widget_count > 0)
+		printf(" dapm: found %d widgets\n",
+			soc_fw->dapm_object->widget_count);
+	else
+		printf(" dapm: no widgets found\n");
+
+	if (soc_fw->dapm_object->kcontrol_count > 0)
+		printf(" dapm: found %d controls\n",
+			soc_fw->dapm_object->kcontrol_count);
+	else
+		printf(" dapm: no controls found\n");
+}
+
 int main(int argc, char *argv[])
 {
+	struct soc_fw_priv soc_fw;
 	int i, err = 0, in_fd, out_fd, offset = 0;
 	FILE *out_legacy_fd = NULL;
 	uint32_t *buf_legacy;
 	char *buf;
-	char *dapm_object = NULL, *control_object = NULL,
-		*vendor_fw = NULL, *vendor, *outfile; 
-
+	
 	if (argc < 4)
 		usage(argv[0]);
 
@@ -109,7 +151,9 @@ int main(int argc, char *argv[])
 		if (!strcmp("-d", argv[i])) {
 			if (++i == argc)
 				usage(argv[0]);
-			dapm_object = argv[i];
+			soc_fw.dapm_name = argv[i];
+
+			load_graph(&soc_fw);
 			continue;
 		}
 
@@ -117,32 +161,32 @@ int main(int argc, char *argv[])
 		if (!strcmp("-c", argv[i])) {
 			if (++i == argc)
 				usage(argv[0]);
-			control_object = argv[i];
+			//control_object = argv[i];
 			continue;
 		}
 
 		/* vendor options */
-		if (!strcmp("-d", argv[i])) {
+		if (!strcmp("-vfw", argv[i])) {
 			if (++i == argc)
 				usage(argv[0]);
-			dapm_object = argv[i];
+			//dapm_object = argv[i];
 			continue;
 		}
-		if (!strcmp("-d", argv[i])) {
+		if (!strcmp("-v", argv[i])) {
 			if (++i == argc)
 				usage(argv[0]);
-			dapm_object = argv[i];
+			//dapm_object = argv[i];
 			continue;
 		}
-		if (!strcmp("-d", argv[i])) {
+		if (!strcmp("-v", argv[i])) {
 			if (++i == argc)
 				usage(argv[0]);
-			dapm_object = argv[i];
+			//dapm_object = argv[i];
 			continue;
 		}
 
 		/* none of the above so must be outfile */
-		outfile = argv[i];
+		//outfile = argv[i];
 	}
 #if 0
 	buf = malloc(MAX_FILE_SIZE);

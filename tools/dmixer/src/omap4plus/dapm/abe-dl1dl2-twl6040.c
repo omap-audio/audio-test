@@ -871,3 +871,14 @@ static const struct snd_soc_dapm_route graph[] = {
 	{"DMIC2", NULL, "BE_IN"},
 };
 
+struct soc_dapm_plugin dapm_plugin = {
+	.graph		= graph,
+	.graph_count	= ARRAY_SIZE(graph),
+
+	.widgets	= widgets,
+	.widget_count	= ARRAY_SIZE(widgets),
+
+	.kcontrols 	= controls,
+	.kcontrol_count	= ARRAY_SIZE(controls),
+};
+

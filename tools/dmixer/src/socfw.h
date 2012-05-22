@@ -18,7 +18,6 @@
 #include <stdint.h>
 
 #include <sound/asound.h>
-#include <tlv.h>
 
 typedef	uint32_t u32;
 typedef	int32_t s32;
@@ -173,6 +172,20 @@ struct snd_soc_file_dapm_elems {
 	/* elements here */
 };
 
+/*
+ * PLUGIN API.
+ */
+
+struct soc_dapm_plugin {
+	const struct snd_soc_dapm_route *graph;
+	int graph_count;
+
+	const struct snd_soc_dapm_widget *widgets;	
+	int widget_count;
+
+	const struct snd_kcontrol_new *kcontrols;
+	int kcontrol_count;
+};
 
 /*
  * ASoC C types to support copy and paste from Kernel Source files.
@@ -678,6 +691,48 @@ struct snd_soc_file_dapm_elems {
 #define snd_soc_dapm_put_pin_switch	NULL
 
 #define ARRAY_SIZE(x)	(sizeof(x) / sizeof(x[0]))
+
+#define SNDRV_CTL_TLVT_CONTAINER 0	/* one level down - group of TLVs */
+#define SNDRV_CTL_TLVT_DB_SCALE	1       /* dB scale */
+#define SNDRV_CTL_TLVT_DB_LINEAR 2	/* linear volume */
+#define SNDRV_CTL_TLVT_DB_RANGE 3	/* dB range container */
+#define SNDRV_CTL_TLVT_DB_MINMAX 4	/* dB scale with min/max */
+#define SNDRV_CTL_TLVT_DB_MINMAX_MUTE 5	/* dB scale with min/max with mute */
+
+#define TLV_DB_SCALE_MASK	0xffff
+#define TLV_DB_SCALE_MUTE	0x10000
+#define TLV_DB_SCALE_ITEM(min, step, mute)			\
+	SNDRV_CTL_TLVT_DB_SCALE, 2 * sizeof(unsigned int),	\
+	(min), ((step) & TLV_DB_SCALE_MASK) | ((mute) ? TLV_DB_SCALE_MUTE : 0)
+#define DECLARE_TLV_DB_SCALE(name, min, step, mute) \
+	unsigned int name[] = { TLV_DB_SCALE_ITEM(min, step, mute) }
+
+/* dB scale specified with min/max values instead of step */
+#define TLV_DB_MINMAX_ITEM(min_dB, max_dB)			\
+	SNDRV_CTL_TLVT_DB_MINMAX, 2 * sizeof(unsigned int),	\
+	(min_dB), (max_dB)
+#define TLV_DB_MINMAX_MUTE_ITEM(min_dB, max_dB)			\
+	SNDRV_CTL_TLVT_DB_MINMAX_MUTE, 2 * sizeof(unsigned int),	\
+	(min_dB), (max_dB)
+#define DECLARE_TLV_DB_MINMAX(name, min_dB, max_dB) \
+	unsigned int name[] = { TLV_DB_MINMAX_ITEM(min_dB, max_dB) }
+#define DECLARE_TLV_DB_MINMAX_MUTE(name, min_dB, max_dB) \
+	unsigned int name[] = { TLV_DB_MINMAX_MUTE_ITEM(min_dB, max_dB) }
+
+/* linear volume between min_dB and max_dB (.01dB unit) */
+#define TLV_DB_LINEAR_ITEM(min_dB, max_dB)		    \
+	SNDRV_CTL_TLVT_DB_LINEAR, 2 * sizeof(unsigned int), \
+	(min_dB), (max_dB)
+#define DECLARE_TLV_DB_LINEAR(name, min_dB, max_dB)	\
+	unsigned int name[] = { TLV_DB_LINEAR_ITEM(min_dB, max_dB) }
+
+/* dB range container */
+/* Each item is: <min> <max> <TLV> */
+/* The below assumes that each item TLV is 4 words like DB_SCALE or LINEAR */
+#define TLV_DB_RANGE_HEAD(num)			\
+	SNDRV_CTL_TLVT_DB_RANGE, 6 * (num) * sizeof(unsigned int)
+
+#define TLV_DB_GAIN_MUTE	-9999999
 
 /* mixer control */
 struct soc_mixer_control {
