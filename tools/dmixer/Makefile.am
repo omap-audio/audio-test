@@ -1,6 +1,5 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
-
-SUBDIRS = src
+SUBDIRS = src plugins
 

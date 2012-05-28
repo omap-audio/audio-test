@@ -1,0 +1,12 @@
+Makefile
+configure
+Makefile.in
+config.*
+autom4te.cache*
+*.so
+*.la
+*.a
+*.o
+*.lo
+*.lai
+.deps*

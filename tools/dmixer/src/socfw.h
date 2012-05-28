@@ -23,7 +23,7 @@ typedef	uint32_t u32;
 typedef	int32_t s32;
 
 #define SND_SOC_FILE_MAGIC	0x41536F43 /* ASoC */
-#define SND_SOC_FILE_TEXT_SIZE	16
+#define SND_SOC_FILE_TEXT_SIZE	32
 #define SND_SOC_FILE_NUM_TEXTS	16
 
 /* 
@@ -190,6 +190,18 @@ struct soc_dapm_plugin {
 /*
  * ASoC C types to support copy and paste from Kernel Source files.
  */
+
+/* get/put/info types - TODO: move this into kernel header */
+#define SOC_MIXER_IO_VOLSW		0
+#define SOC_MIXER_IO_VOLSW_SX		1
+#define SOC_MIXER_IO_VOLSW_S8		2
+#define SOC_MIXER_IO_VOLSW_XR_SX	3
+#define SOC_MIXER_IO_VOLSW_EXT		4
+#define SOC_MIXER_IO_ENUM		5
+#define SOC_MIXER_IO_ENUM_EXT		6
+#define SOC_MIXER_IO_BYTES		7
+#define SOC_MIXER_IO_BOOL		8
+
 /*
  * Convenience kcontrol builders
  */
@@ -198,92 +210,72 @@ struct soc_dapm_plugin {
 	{.reg = xreg, .rreg = xreg, .shift = shift_left, \
 	.rshift = shift_right, .max = xmax, .platform_max = xmax, \
 	.invert = xinvert})
+
 #define SOC_SINGLE_VALUE(xreg, xshift, xmax, xinvert) \
 	SOC_DOUBLE_VALUE(xreg, xshift, xshift, xmax, xinvert)
+
 #define SOC_SINGLE_VALUE_EXT(xreg, xmax, xinvert) \
 	((unsigned long)&(struct soc_mixer_control) \
 	{.reg = xreg, .max = xmax, .platform_max = xmax, .invert = xinvert})
+
 #define SOC_DOUBLE_R_VALUE(xlreg, xrreg, xshift, xmax, xinvert) \
 	((unsigned long)&(struct soc_mixer_control) \
 	{.reg = xlreg, .rreg = xrreg, .shift = xshift, .rshift = xshift, \
 	.max = xmax, .platform_max = xmax, .invert = xinvert})
+
 #define SOC_SINGLE(xname, reg, shift, max, invert) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
-	.info = snd_soc_info_volsw, .get = snd_soc_get_volsw,\
-	.put = snd_soc_put_volsw, \
+{	.iface = SOC_MIXER_IO_VOLSW, .name = xname, \
 	.private_value =  SOC_SINGLE_VALUE(reg, shift, max, invert) }
+
 #define SOC_SINGLE_TLV(xname, reg, shift, max, invert, tlv_array) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
-	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ |\
-		 SNDRV_CTL_ELEM_ACCESS_READWRITE,\
+{	.iface = SOC_MIXER_IO_VOLSW, .name = xname, \
 	.tlv.p = (tlv_array), \
-	.info = snd_soc_info_volsw, .get = snd_soc_get_volsw,\
-	.put = snd_soc_put_volsw, \
 	.private_value =  SOC_SINGLE_VALUE(reg, shift, max, invert) }
+
 #define SOC_SINGLE_SX_TLV(xname, xreg, xshift, xmin, xmax, tlv_array) \
-{       .iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
-	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ | \
-	SNDRV_CTL_ELEM_ACCESS_READWRITE, \
+{       .iface = SOC_MIXER_IO_VOLSW_SX, .name = xname, \
 	.tlv.p  = (tlv_array),\
-	.info = snd_soc_info_volsw, \
-	.get = snd_soc_get_volsw_sx,\
-	.put = snd_soc_put_volsw_sx, \
 	.private_value = (unsigned long)&(struct soc_mixer_control) \
 		{.reg = xreg, .rreg = xreg, \
 		.shift = xshift, .rshift = xshift, \
 		.max = xmax, .min = xmin} }
+
 #define SOC_DOUBLE(xname, reg, shift_left, shift_right, max, invert) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = (xname),\
-	.info = snd_soc_info_volsw, .get = snd_soc_get_volsw, \
-	.put = snd_soc_put_volsw, \
+{	.iface = SOC_MIXER_IO_VOLSW, .name = (xname),\
 	.private_value = SOC_DOUBLE_VALUE(reg, shift_left, shift_right, \
 					  max, invert) }
+
 #define SOC_DOUBLE_R(xname, reg_left, reg_right, xshift, xmax, xinvert) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = (xname), \
-	.info = snd_soc_info_volsw, \
-	.get = snd_soc_get_volsw, .put = snd_soc_put_volsw, \
-	.private_value = SOC_DOUBLE_R_VALUE(reg_left, reg_right, xshift, \
-					    xmax, xinvert) }
+{	.iface = SOC_MIXER_IO_VOLSW, .name = (xname), \
+	.private_value = \
+		SOC_DOUBLE_R_VALUE(reg_left, reg_right, xshift,xmax, xinvert) }
+
 #define SOC_DOUBLE_TLV(xname, reg, shift_left, shift_right, max, invert, tlv_array) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = (xname),\
-	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ |\
-		 SNDRV_CTL_ELEM_ACCESS_READWRITE,\
-	.tlv.p = (tlv_array), \
-	.info = snd_soc_info_volsw, .get = snd_soc_get_volsw, \
-	.put = snd_soc_put_volsw, \
-	.private_value = SOC_DOUBLE_VALUE(reg, shift_left, shift_right, \
-					  max, invert) }
+{	.iface = SOC_MIXER_IO_VOLSW, .name = (xname),\
+	.tlv.p = (tlv_array), .private_value =\
+		SOC_DOUBLE_VALUE(reg, shift_left, shift_right, max, invert) }
+
 #define SOC_DOUBLE_R_TLV(xname, reg_left, reg_right, xshift, xmax, xinvert, tlv_array) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = (xname),\
-	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ |\
-		 SNDRV_CTL_ELEM_ACCESS_READWRITE,\
+{	.iface = SOC_MIXER_IO_VOLSW_SX, .name = (xname),\
 	.tlv.p = (tlv_array), \
-	.info = snd_soc_info_volsw, \
-	.get = snd_soc_get_volsw, .put = snd_soc_put_volsw, \
-	.private_value = SOC_DOUBLE_R_VALUE(reg_left, reg_right, xshift, \
-					    xmax, xinvert) }
+	.private_value =\
+		SOC_DOUBLE_R_VALUE(reg_left, reg_right, xshift, xmax, xinvert) }
+
 #define SOC_DOUBLE_R_SX_TLV(xname, xreg, xrreg, xshift, xmin, xmax, tlv_array) \
-{       .iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = (xname), \
-	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ | \
-	SNDRV_CTL_ELEM_ACCESS_READWRITE, \
+{       .iface = SOC_MIXER_IO_VOLSW_SX, .name = (xname), \
 	.tlv.p  = (tlv_array), \
-	.info = snd_soc_info_volsw, \
-	.get = snd_soc_get_volsw_sx, \
-	.put = snd_soc_put_volsw_sx, \
 	.private_value = (unsigned long)&(struct soc_mixer_control) \
 		{.reg = xreg, .rreg = xrreg, \
 		.shift = xshift, .rshift = xshift, \
 		.max = xmax, .min = xmin} }
+
 #define SOC_DOUBLE_S8_TLV(xname, xreg, xmin, xmax, tlv_array) \
-{	.iface  = SNDRV_CTL_ELEM_IFACE_MIXER, .name = (xname), \
-	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ | \
-		  SNDRV_CTL_ELEM_ACCESS_READWRITE, \
+{	.iface  = SOC_MIXER_IO_VOLSW_S8, .name = (xname), \
 	.tlv.p  = (tlv_array), \
-	.info   = snd_soc_info_volsw_s8, .get = snd_soc_get_volsw_s8, \
-	.put    = snd_soc_put_volsw_s8, \
 	.private_value = (unsigned long)&(struct soc_mixer_control) \
 		{.reg = xreg, .min = xmin, .max = xmax, \
 		 .platform_max = xmax} }
+
 #define SOC_ENUM_DOUBLE(xreg, xshift_l, xshift_r, xmax, xtexts) \
 {	.reg = xreg, .shift_l = xshift_l, .shift_r = xshift_r, \
 	.max = xmax, .texts = xtexts }
@@ -296,90 +288,70 @@ struct soc_dapm_plugin {
 	.mask = xmask, .max = xmax, .texts = xtexts, .values = xvalues}
 #define SOC_VALUE_ENUM_SINGLE(xreg, xshift, xmask, xmax, xtexts, xvalues) \
 	SOC_VALUE_ENUM_DOUBLE(xreg, xshift, xshift, xmask, xmax, xtexts, xvalues)
+
 #define SOC_ENUM(xname, xenum) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname,\
-	.info = snd_soc_info_enum_double, \
-	.get = snd_soc_get_enum_double, .put = snd_soc_put_enum_double, \
+{	.iface = SOC_MIXER_IO_ENUM, .name = xname,\
 	.private_value = (unsigned long)&xenum }
+
 #define SOC_VALUE_ENUM(xname, xenum) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname,\
-	.info = snd_soc_info_enum_double, \
-	.get = snd_soc_get_value_enum_double, \
-	.put = snd_soc_put_value_enum_double, \
+{	.iface = SOC_MIXER_IO_ENUM, .name = xname,\
 	.private_value = (unsigned long)&xenum }
+
 #define SOC_SINGLE_EXT(xname, xreg, xshift, xmax, xinvert,\
 	 xhandler_get, xhandler_put) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
-	.info = snd_soc_info_volsw, \
-	.get = xhandler_get, .put = xhandler_put, \
+{	.iface = SOC_MIXER_IO_VOLSW_EXT, .name = xname, \
 	.private_value = SOC_SINGLE_VALUE(xreg, xshift, xmax, xinvert) }
+
 #define SOC_DOUBLE_EXT(xname, reg, shift_left, shift_right, max, invert,\
 	 xhandler_get, xhandler_put) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = (xname),\
-	.info = snd_soc_info_volsw, \
-	.get = xhandler_get, .put = xhandler_put, \
+{	.iface = SOC_MIXER_IO_VOLSW_EXT, .name = (xname),\
 	.private_value = \
 		SOC_DOUBLE_VALUE(reg, shift_left, shift_right, max, invert) }
+
 #define SOC_SINGLE_EXT_TLV(xname, xreg, xshift, xmax, xinvert,\
 	 xhandler_get, xhandler_put, tlv_array) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
-	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ |\
-		 SNDRV_CTL_ELEM_ACCESS_READWRITE,\
+{	.iface = SOC_MIXER_IO_VOLSW_EXT, .name = xname, \
 	.tlv.p = (tlv_array), \
-	.info = snd_soc_info_volsw, \
-	.get = xhandler_get, .put = xhandler_put, \
 	.private_value = SOC_SINGLE_VALUE(xreg, xshift, xmax, xinvert) }
+
 #define SOC_DOUBLE_EXT_TLV(xname, xreg, shift_left, shift_right, xmax, xinvert,\
 	 xhandler_get, xhandler_put, tlv_array) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = (xname), \
-	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ | \
-		 SNDRV_CTL_ELEM_ACCESS_READWRITE, \
+{	.iface = SOC_MIXER_IO_VOLSW_EXT, .name = (xname), \
 	.tlv.p = (tlv_array), \
-	.info = snd_soc_info_volsw, \
-	.get = xhandler_get, .put = xhandler_put, \
 	.private_value = SOC_DOUBLE_VALUE(xreg, shift_left, shift_right, \
 					  xmax, xinvert) }
+
 #define SOC_DOUBLE_R_EXT_TLV(xname, reg_left, reg_right, xshift, xmax, xinvert,\
 	 xhandler_get, xhandler_put, tlv_array) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = (xname), \
-	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ | \
-		 SNDRV_CTL_ELEM_ACCESS_READWRITE, \
+{	.iface = SOC_MIXER_IO_VOLSW_EXT, .name = (xname), \
 	.tlv.p = (tlv_array), \
-	.info = snd_soc_info_volsw, \
-	.get = xhandler_get, .put = xhandler_put, \
 	.private_value = SOC_DOUBLE_R_VALUE(reg_left, reg_right, xshift, \
 					    xmax, xinvert) }
+
 #define SOC_SINGLE_BOOL_EXT(xname, xdata, xhandler_get, xhandler_put) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
-	.info = snd_soc_info_bool_ext, \
-	.get = xhandler_get, .put = xhandler_put, \
+{	.iface = SOC_MIXER_IO_BOOL_EXT, .name = xname, \
 	.private_value = xdata }
+
 #define SOC_ENUM_EXT(xname, xenum, xhandler_get, xhandler_put) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
-	.info = snd_soc_info_enum_ext, \
-	.get = xhandler_get, .put = xhandler_put, \
+{	.iface = SOC_MIXER_IO_ENUM_EXT, .name = xname, \
 	.private_value = (unsigned long)&xenum }
 
 #define SND_SOC_BYTES(xname, xbase, xregs)		      \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname,   \
-	.info = snd_soc_bytes_info, .get = snd_soc_bytes_get, \
-	.put = snd_soc_bytes_put, .private_value =	      \
+{	.iface = SOC_MIXER_IO_BYTES, .name = xname,   \
+	.private_value =	      \
 		((unsigned long)&(struct soc_bytes)           \
 		{.base = xbase, .num_regs = xregs }) }
 
 #define SND_SOC_BYTES_MASK(xname, xbase, xregs, xmask)	      \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname,   \
-	.info = snd_soc_bytes_info, .get = snd_soc_bytes_get, \
-	.put = snd_soc_bytes_put, .private_value =	      \
+{	.iface = SOC_MIXER_IO_BYTES, .name = xname,   \
+	.private_value =	      \
 		((unsigned long)&(struct soc_bytes)           \
 		{.base = xbase, .num_regs = xregs,	      \
 		 .mask = xmask }) }
 
 #define SOC_SINGLE_XR_SX(xname, xregbase, xregcount, xnbits, \
 		xmin, xmax, xinvert) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = (xname), \
-	.info = snd_soc_info_xr_sx, .get = snd_soc_get_xr_sx, \
-	.put = snd_soc_put_xr_sx, \
+{	.iface = SOC_MIXER_IO_VOLSW_XR_SX, .name = (xname), \
 	.private_value = (unsigned long)&(struct soc_mreg_control) \
 		{.regbase = xregbase, .regcount = xregcount, .nbits = xnbits, \
 		.invert = xinvert, .min = xmin, .max = xmax} }
@@ -615,71 +587,59 @@ struct soc_dapm_plugin {
 
 /* dapm kcontrol types */
 #define SOC_DAPM_SINGLE(xname, reg, shift, max, invert) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
-	.info = snd_soc_info_volsw, \
-	.get = snd_soc_dapm_get_volsw, .put = snd_soc_dapm_put_volsw, \
+{	.iface = SOC_MIXER_IO_VOLSW, .name = xname, \
 	.private_value =  SOC_SINGLE_VALUE(reg, shift, max, invert) }
+
 #define SOC_DAPM_SINGLE_TLV(xname, reg, shift, max, invert, tlv_array) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
-	.info = snd_soc_info_volsw, \
-	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ | SNDRV_CTL_ELEM_ACCESS_READWRITE,\
+{	.iface = SOC_MIXER_IO_VOLSW, .name = xname, \
 	.tlv.p = (tlv_array), \
-	.get = snd_soc_dapm_get_volsw, .put = snd_soc_dapm_put_volsw, \
 	.private_value =  SOC_SINGLE_VALUE(reg, shift, max, invert) }
+
 #define SOC_DAPM_ENUM(xname, xenum) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
-	.info = snd_soc_info_enum_double, \
- 	.get = snd_soc_dapm_get_enum_double, \
- 	.put = snd_soc_dapm_put_enum_double, \
+{	.iface = SOC_MIXER_IO_ENUM, .name = xname, \
   	.private_value = (unsigned long)&xenum }
+
 #define SOC_DAPM_ENUM_VIRT(xname, xenum)		    \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
-	.info = snd_soc_info_enum_double, \
-	.get = snd_soc_dapm_get_enum_virt, \
-	.put = snd_soc_dapm_put_enum_virt, \
+{	.iface = SOC_MIXER_IO_ENUM, .name = xname, \
 	.private_value = (unsigned long)&xenum }
+
 #define SOC_DAPM_ENUM_EXT(xname, xenum, xget, xput) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
-	.info = snd_soc_info_enum_double, \
-	.get = xget, \
-	.put = xput, \
+{	.iface = SOC_MIXER_IO_ENUM_EXT, .name = xname, \
 	.private_value = (unsigned long)&xenum }
+
 #define SOC_DAPM_VALUE_ENUM(xname, xenum) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
-	.info = snd_soc_info_enum_double, \
-	.get = snd_soc_dapm_get_value_enum_double, \
-	.put = snd_soc_dapm_put_value_enum_double, \
+{	.iface = SOC_MIXER_IO_ENUM_VALUE, .name = xname, \
 	.private_value = (unsigned long)&xenum }
+
 #define SOC_DAPM_PIN_SWITCH(xname) \
-{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname " Switch", \
-	.info = snd_soc_dapm_info_pin_switch, \
-	.get = snd_soc_dapm_get_pin_switch, \
-	.put = snd_soc_dapm_put_pin_switch, \
+{	.iface = SOC_MIXER_IO_PIN, .name = xname " Switch", \
 	.private_value = (unsigned long)xname }
 
 #define SND_SOC_NOPM	-1
 
+/*
+ * Declare IO mechanisms as NULL for ease of control import.
+ */
+#define snd_soc_info_enum_ext		NULL
 #define snd_soc_info_enum_double	NULL
-#define snd_soc_info_enum_ext	NULL
-#define snd_soc_get_enum_double	NULL
-#define snd_soc_put_enum_double	NULL
+#define snd_soc_get_enum_double		NULL
+#define snd_soc_put_enum_double		NULL
 #define snd_soc_get_value_enum_double	NULL
 #define snd_soc_put_value_enum_double	NULL
-#define snd_soc_info_volsw	NULL
-#define snd_soc_info_volsw_ext	NULL
-#define snd_soc_info_bool_ext		snd_ctl_boolean_mono_info
-#define snd_soc_get_volsw	NULL
-#define snd_soc_put_volsw	NULL
-#define snd_soc_get_volsw_2r snd_soc_get_volsw
-#define snd_soc_put_volsw_2r snd_soc_put_volsw
-#define snd_soc_get_volsw_sx	NULL
-#define snd_soc_put_volsw_sx	NULL
-#define snd_soc_info_volsw_s8	NULL
-#define snd_soc_get_volsw_s8	NULL
-#define snd_soc_put_volsw_s8	NULL
-
-#define snd_soc_dapm_put_volsw	NULL
-#define snd_soc_dapm_get_volsw	NULL
+#define snd_soc_info_volsw		NULL
+#define snd_soc_info_volsw_ext		NULL
+#define snd_soc_info_bool_ext		NULL
+#define snd_soc_get_volsw		NULL
+#define snd_soc_put_volsw		NULL
+#define snd_soc_get_volsw_2r 		snd_soc_get_volsw
+#define snd_soc_put_volsw_2r 		snd_soc_put_volsw
+#define snd_soc_get_volsw_sx		NULL
+#define snd_soc_put_volsw_sx		NULL
+#define snd_soc_info_volsw_s8		NULL
+#define snd_soc_get_volsw_s8		NULL
+#define snd_soc_put_volsw_s8		NULL
+#define snd_soc_dapm_put_volsw		NULL
+#define snd_soc_dapm_get_volsw		NULL
 #define snd_soc_dapm_get_enum_double	NULL
 #define snd_soc_dapm_put_enum_double	NULL
 #define snd_soc_dapm_get_enum_virt	NULL
@@ -771,31 +731,12 @@ struct snd_soc_dapm_route {
 };
 
 struct snd_kcontrol;
-struct snd_ctl_elem_info;
-struct snd_ctl_elem_value;
-
-typedef int (snd_kcontrol_info_t) (struct snd_kcontrol * kcontrol, struct snd_ctl_elem_info * uinfo);
-typedef int (snd_kcontrol_get_t) (struct snd_kcontrol * kcontrol, struct snd_ctl_elem_value * ucontrol);
-typedef int (snd_kcontrol_put_t) (struct snd_kcontrol * kcontrol, struct snd_ctl_elem_value * ucontrol);
-typedef int (snd_kcontrol_tlv_rw_t)(struct snd_kcontrol *kcontrol,
-				    int op_flag, /* 0=read,1=write,-1=command */
-				    unsigned int size,
-				    unsigned int  *tlv);
-
 
 struct snd_kcontrol_new {
 	int iface;	/* interface identifier */
-	unsigned int device;		/* device/client number */
-	unsigned int subdevice;		/* subdevice (substream) number */
 	const unsigned char *name;	/* ASCII name of item */
-	unsigned int index;		/* index of item */
-	unsigned int access;		/* access rights */
 	unsigned int count;		/* count of same elements */
-	snd_kcontrol_info_t *info;
-	snd_kcontrol_get_t *get;
-	snd_kcontrol_put_t *put;
 	union {
-		snd_kcontrol_tlv_rw_t *c;
 		const unsigned int *p;
 	} tlv;
 	unsigned long private_value;
@@ -843,22 +784,10 @@ struct snd_soc_dapm_widget {
 	unsigned int saved_value;		/* widget saved value */
 	unsigned int value;				/* widget current value */
 	unsigned int mask;			/* non-shifted mask */
-	unsigned int on_val;			/* on state value */
-	unsigned int off_val;			/* off state value */
-	unsigned char power:1;			/* block power status */
 	unsigned char invert:1;			/* invert the power bit */
-	unsigned char active:1;			/* active stream on DAC, ADC's */
-	unsigned char connected:1;		/* connected codec pin */
-	unsigned char new:1;			/* cnew complete */
-	unsigned char ext:1;			/* has external widgets */
-	unsigned char force:1;			/* force state */
 	unsigned char ignore_suspend:1;         /* kept enabled over suspend */
-	unsigned char new_power:1;		/* power from this run */
-	unsigned char power_checked:1;		/* power checked this run */
-	unsigned char dai_endpoint:1;	/* DAI end point for current stream event */
 	unsigned char denum:1;		/* dynamic enum control */
 	unsigned char dmixer:1;		/* dynamic mixer control*/
-	int subseq;				/* sort within widget type */
 
 	int num_kcontrols;
 	const struct snd_kcontrol_new *kcontrol_news;

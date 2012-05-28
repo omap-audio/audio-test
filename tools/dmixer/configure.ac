@@ -46,6 +46,8 @@ AC_SUBST(LINUX_DIR)
 AC_CONFIG_FILES([
 Makefile
 src/Makefile
+plugins/Makefile
+plugins/omap4plus/Makefile
 ])
 
 AC_OUTPUT

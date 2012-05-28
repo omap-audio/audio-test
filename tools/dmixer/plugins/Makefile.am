@@ -1,0 +1,3 @@
+
+SUBDIRS = omap4plus
+

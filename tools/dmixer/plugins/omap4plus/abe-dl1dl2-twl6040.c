@@ -871,7 +871,7 @@ static const struct snd_soc_dapm_route graph[] = {
 	{"DMIC2", NULL, "BE_IN"},
 };
 
-struct soc_dapm_plugin dapm_plugin = {
+struct soc_dapm_plugin plugin = {
 	.graph		= graph,
 	.graph_count	= ARRAY_SIZE(graph),
 
