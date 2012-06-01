@@ -1,5 +1,5 @@
 /*
- * linux/sound/soc-file.h -- ALSA SoC Layer
+ * linux/sound/socfw.h -- ALSA SoC Layer
  *
  * Copyright:	2012 Texas Instruments Inc.
  *
@@ -11,8 +11,8 @@
  * algorithms, equalisers, etc.
  */
 
-#ifndef __HDR_H
-#define __HDR_H
+#ifndef __SOC_FW_H
+#define __SOC_FW_H
 
 #include <sys/types.h>
 #include <stdint.h>
@@ -794,4 +794,16 @@ struct snd_soc_dapm_widget {
 	
 };
 
+struct soc_fw_priv;
+
+struct soc_fw_priv *socfw_new(const char *name);
+void socfw_free(struct soc_fw_priv *soc_fw);
+int socfw_import_plugin(struct soc_fw_priv *soc_fw, const char *name);
+int socfw_import_vendor(struct soc_fw_priv *soc_fw, const char *name, int type);
+int socfw_import_dapm_graph(struct soc_fw_priv *soc_fw,
+	const struct snd_soc_dapm_route *graph, int graph_count);
+int socfw_import_dapm_widgets(struct soc_fw_priv *soc_fw,
+	const struct snd_soc_dapm_widget *widgets, int widget_count);
+int socfw_import_controls(struct soc_fw_priv *soc_fw,
+	const struct snd_kcontrol_new *kcontrols, int kcontrol_count);
 #endif

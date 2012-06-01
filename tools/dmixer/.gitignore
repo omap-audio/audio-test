@@ -3,6 +3,7 @@ configure
 Makefile.in
 config.*
 autom4te.cache*
+*.so.*
 *.so
 *.la
 *.a
@@ -10,3 +11,13 @@ autom4te.cache*
 *.lo
 *.lai
 .deps*
+aclocal.m4
+compile
+depcomp
+install-sh
+socfw
+missing
+m4/*
+libtool
+ltmain.sh
+

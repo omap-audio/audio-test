@@ -5,7 +5,7 @@ AC_INIT([socfw], [0.1])
 AC_CONFIG_SRCDIR([src/socfw.c])
 AC_CONFIG_MACRO_DIR([m4])
 #AC_CONFIG_HEADERS([config.h])
-AM_INIT_AUTOMAKE([gnits 0.1 no-define dist-bzip2])
+AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability])
 
 AC_PROG_CC
 AC_PROG_CC_C99
@@ -41,7 +41,6 @@ AC_ARG_WITH(
         [LINUX_DIR=$withval], [LINUX_DIR="~/source/linux.git"])
 
 AC_SUBST(LINUX_DIR)
-
 
 AC_CONFIG_FILES([
 Makefile
