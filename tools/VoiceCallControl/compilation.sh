@@ -1,3 +1,3 @@
  # !/bin/sh
- gcc -o voicecallcontrol -l asound  voicecallcontrol.c
+ gcc -o voicecallcontrol voicecallcontrol.c -l asound
 
