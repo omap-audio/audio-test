@@ -378,13 +378,22 @@ abehal_status abe_connect_slimbus_port(u32 id, abe_data_format_t *f,
  * abe_connect_tdm_port
  * @id: port name
  * @f: data format
+ * @nbchanel: number of chanel to pack
  * @i: peripheral ID (McBSP #1, #2, #3)
- * @j: peripheral ID (McBSP #1, #2, #3)
  *
  * enables the data echanges between TDM McBSP ATC buffers in
  * DMEM and 1/2 SMEM buffers
  */
-abehal_status abe_connect_tdm_port(u32 id, abe_data_format_t *f, u32 mcbsp_id);
+abehal_status abe_connect_tdm_port(u32 id, abe_data_format_t *f, u32 nbchanel, u32 mcbsp_id );
+/**
+ * abe_set_tdm_parameters
+ * @nbchanel: number of channel (2,4,6,8)
+ * @buff1_labelID..buff4_labelID: labelID of buffer to read
+ * @shift_channel1..shift_channel4: shift value for each channel (max -2)
+ *
+ */
+abehal_status abe_set_tdm_parameters(u32 id, u32 nbchanel, u32 buff1_labelID, u32 buff2_labelID,u32 buff3_labelID,u32 buff4_labelID,
+									u32 shift_channel1,u32 shift_channel2,u32 shift_channel3,u32 shift_channel4);
 /**
  * abe_read_port_address
  * @dma: output pointer to the DMA iteration and data destination pointer

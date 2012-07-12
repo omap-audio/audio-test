@@ -216,6 +216,18 @@ void abe_format_switch(abe_data_format_t *f, u32 *iter, u32 *mulfac)
 	case NINE_MSB:
 		*mulfac = 9;
 		break;
+	case TDM_2:
+		*mulfac = 2;
+		break;
+	case TDM_4:
+		*mulfac = 4;
+		break;
+	case TDM_6:
+		*mulfac = 6;
+		break;
+	case TDM_8:
+		*mulfac = 8;
+		break;
 	default:
 		*mulfac = 1;
 		break;
@@ -223,6 +235,7 @@ void abe_format_switch(abe_data_format_t *f, u32 *iter, u32 *mulfac)
 	*iter = (n_freq * (*mulfac));
 	if (f->samp_format == MONO_16_16)
 		*iter /= 2;
+	
 }
 /**
  * abe_dma_port_iteration
@@ -258,7 +271,7 @@ u32 abe_dma_port_iter_factor(abe_data_format_t *f)
 u32 abe_dma_port_copy_subroutine_id(u32 port_id)
 {
 	u32 sub_id;
-	if (abe_port[port_id].protocol.direction == ABE_ATC_DIRECTION_IN) {
+	if (abe_port[port_id].protocol.direction == ABE_ATC_DIRECTION_IN) { /* Input ports*/
 		switch (abe_port[port_id].format.samp_format) {
 		case MONO_MSB:
 			sub_id = D2S_MONO_MSB_CFPID;
@@ -287,7 +300,7 @@ u32 abe_dma_port_copy_subroutine_id(u32 port_id)
 			sub_id = NULL_COPY_CFPID;
 			break;
 		}
-	} else {
+	} else { /* Output ports*/
 		switch (abe_port[port_id].format.samp_format) {
 		case MONO_MSB:
 			sub_id = S2D_MONO_MSB_CFPID;
@@ -335,6 +348,9 @@ u32 abe_dma_port_copy_subroutine_id(u32 port_id)
 			sub_id = NULL_COPY_CFPID;
 			break;
 		}
+		/* Special case for TDM format */
+		if (abe_port[port_id].protocol.protocol_switch == TDM_PORT_PROT)
+				sub_id = COPY_TDM_DL_CFPID;
 	}
 	return sub_id;
 }

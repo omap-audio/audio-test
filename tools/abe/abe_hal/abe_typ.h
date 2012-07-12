@@ -167,12 +167,16 @@ typedef u32 abe_patch_rev;
 #define NINE_MSB 12
 #define TEN_MSB 13
 #define MONO_16_16 14
+#define TDM_2 15
+#define TDM_4 16
+#define TDM_6 17
+#define TDM_8 18
 /*
  *	PORT PROTOCOL TYPE - abe_port_protocol_switch_id
  */
 #define SLIMBUS_PORT_PROT 1
 #define SERIAL_PORT_PROT 2
-#define TDM_SERIAL_PORT_PROT 3
+#define TDM_PORT_PROT 3
 #define DMIC_PORT_PROT 4
 #define MCPDMDL_PORT_PROT 5
 #define MCPDMUL_PORT_PROT 6
@@ -190,7 +194,7 @@ typedef u32 abe_patch_rev;
 #define MM_DL_PORT 6
 #define VX_DL_PORT 7
 #define TONES_DL_PORT 8
-#define VIB_DL_PORT 9
+#define McASP1_PORT 9
 #define BT_VX_DL_PORT 10
 #define PDM_DL_PORT 11
 #define MM_EXT_OUT_PORT 12
@@ -236,7 +240,7 @@ typedef u32 abe_patch_rev;
 #define DBG_PATCH_BT_UL 6
 #define DBG_PATCH_MM_DL 7
 #define DBG_PATCH_DL2_EQ 8
-#define DBG_PATCH_VIBRA 9
+#define DBG_PATCH_McASP1 9
 #define DBG_PATCH_MM_EXT_IN 10
 #define DBG_PATCH_EANC_FBK_Out 11
 #define DBG_PATCH_MIC4 12
@@ -257,8 +261,12 @@ typedef u32 abe_patch_rev;
 #define FEAT_EQAMIC         (FEAT_EQSDT+1)
 /* equalizer uplink path DMIC */
 #define FEAT_EQDMIC         (FEAT_EQAMIC+1)
+/* equalizer uplink path DMIC1 */
+#define FEAT_EQDMIC1        (FEAT_EQDMIC+1)
+/* biquad equalizer downlink path 1 */
+#define FEAT_EQ1BQ          (FEAT_EQDMIC1+1)
 /* Acoustic protection for headset */
-#define FEAT_APS1           (FEAT_EQDMIC+1)
+#define FEAT_APS1           (FEAT_EQ1BQ+1)
 /* acoustic protection high-pass filter for handsfree "Left" */
 #define FEAT_APS2           (FEAT_APS1+1)
 /* acoustic protection high-pass filter for handsfree "Right" */
@@ -311,6 +319,9 @@ typedef u32 abe_patch_rev;
 #define EQSDT  FEAT_EQSDT
 #define EQAMIC FEAT_EQAMIC
 #define EQDMIC FEAT_EQDMIC
+#define EQDMIC1 FEAT_EQDMIC1
+/* biquad equalizer downlink path 1 */
+#define EQ1BQ  FEAT_EQ1BQ
 /* abe_aps_id */
 /* Acoustic protection for headset */
 #define APS1 FEAT_APS1
@@ -360,6 +371,11 @@ typedef u32 abe_patch_rev;
 #define MCBSP2_RX MCBSP2_DMA_RX
 #define MCBSP3_TX MCBSP3_DMA_TX
 #define MCBSP3_RX MCBSP3_DMA_RX
+/*
+ *	SERIAL PORTS IDs - abe_mcasp_id
+ */
+#define MCASP1_TX	McASP1_AXEVT
+#define MCASP1_RX	McASP1_AREVT
 /*
  *	SERIAL PORTS IDs - abe_slimbus_id;
  */
@@ -727,4 +743,24 @@ typedef struct {
 	double part_sample_96k;     /* portion of samples acquired over one slot period 8k/96k for voice */
 	char port_filenames [20][40];
 } virtaudio_file_desc;
+/*
+ *	TDM generic structure
+ *
+ *	coefficients of the equalizer
+ */
+typedef struct {
+	/* Number of channel to pack and smem buffer labelID and shift value for each channel*/
+	/* the last field is empty and is usefull for good Dmem alignement*/
+	u16 config[10];
+} tdm_configutation;
+/*
+ *	TDM indication port
+ *
+ *	coefficients of the equalizer
+ */
+typedef struct {
+	/* Number of channel to pack and smem buffer labelID and shift value for each channel*/
+	/* the last field is empty and is usefull for good Dmem alignement*/
+	u16 config[10];
+} tdm_port_state;
 #endif/* ifndef ABETYP */
