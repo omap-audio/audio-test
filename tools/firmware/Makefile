@@ -1,5 +1,5 @@
-gen: ../abe/abe_hal/abe_firmware.c header.c
-	gcc header.c -o gen
+gen: ../abe/abe_hal/abe_firmware.c abe_addr.c abe_asrc.c header.c
+	gcc abe_addr.c abe_asrc.c header.c -o gen
 
 fw:	gen
 	./header

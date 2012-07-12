@@ -65,6 +65,9 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include "abe_mem.h"
+#include "abe.h"
+
 #define ABE_COEFF_MAGIC	0xABEABE00
 #define ABE_COEFF_VERSION	1
 #define ABE_FIRMWARE_VERSION	(firmware[0])
@@ -78,7 +81,7 @@
 
 
 #define MAX_COEFF_SIZE	(NUM_EQUALIZERS * MAX_PROFILES * MAX_COEFFS * sizeof(int32_t))
-#define MAX_FW_SIZE	(sizeof(firmware) + MAX_COEFF_SIZE)
+#define MAX_FW_SIZE	(sizeof(firmware) + MAX_COEFF_SIZE + 20000)
 #define MAX_FILE_SIZE	(sizeof(struct header) + \
 			 MAX_FW_SIZE + \
 			 NUM_EQUALIZERS * sizeof(struct config))
@@ -293,6 +296,7 @@ struct config {
 struct header {
 	uint32_t magic;	/* magic number */
 	uint32_t crc;	/* optional crc */
+	uint32_t fw_header_size;	/* FW HEADER size */
 	uint32_t firmware_size;	/* payload size */
 	uint32_t coeff_size;	/* payload size */
 	uint32_t coeff_version;	/* coefficent version */
@@ -383,9 +387,16 @@ struct header hdr = {
  */
 int main(int argc, char *argv[])
 {
+	s32 data_asrc[55];
 	int i, err = 0, in_fd, out_fd, offset = 0;
 	FILE *out_legacy_fd = NULL;
 	uint32_t *buf_legacy;
+	uint32_t abe_size;	/* payload size for ABE data */
+	uint32_t nb_mem_id;	/* Number of Memory descriptor */
+	uint32_t nb_label_id;	/* Number of buffer descriptor */
+	uint32_t nb_fct_id;	/* Number of Copy function */
+	uint32_t nb_task_id;	/* Number of init task */
+
 	char *buf;
 
 	if (argc < 2) {
@@ -425,6 +436,7 @@ int main(int argc, char *argv[])
 
 	hdr.firmware_version = ABE_FIRMWARE_VERSION;
 	hdr.firmware_size = sizeof(firmware);
+	hdr.fw_header_size = 10428;
 	hdr.coeff_version = ABE_COEFF_VERSION;
 	offset = sizeof(hdr) + NUM_EQUALIZERS * sizeof(struct config);
 
@@ -454,6 +466,83 @@ int main(int argc, char *argv[])
 
 	memcpy(buf, &hdr, sizeof(hdr) + NUM_EQUALIZERS * sizeof(struct config));
 
+/* SEBG */
+
+
+	nb_mem_id = OMAP_AESS_MEM_ID_SIZE;
+	nb_label_id = OMAP_AESS_BUFFER_ID_SIZE;
+	nb_fct_id = OMAP_AESS_COPY_FCT_ID_SIZE;
+	nb_task_id = aess_init_table.nb_task;
+	/* Store current offset */
+	abe_size = offset;
+
+	printf("Mem: %d %d\n", nb_mem_id, offset - abe_size);
+	memcpy(buf + offset, &nb_mem_id, sizeof(nb_mem_id));
+	offset += sizeof(nb_mem_id);
+	memcpy(buf + offset, omap_aess_map, sizeof(struct omap_aess_addr) * OMAP_AESS_MEM_ID_SIZE);
+	offset += sizeof(struct omap_aess_addr) * OMAP_AESS_MEM_ID_SIZE;
+
+	printf("Label: %d %d\n", nb_label_id, offset - abe_size);
+	memcpy(buf + offset, &nb_label_id, sizeof(nb_label_id));
+	offset += sizeof(nb_label_id);
+	memcpy(buf + offset, omap_label_id, sizeof(int) * OMAP_AESS_BUFFER_ID_SIZE);
+	offset += sizeof(int) * OMAP_AESS_BUFFER_ID_SIZE;
+
+	printf("Fct: %d %d\n", nb_fct_id, offset - abe_size);
+	memcpy(buf + offset, &nb_fct_id, sizeof(nb_fct_id));
+	offset += sizeof(nb_fct_id);
+	memcpy(buf + offset, omap_function_id, sizeof(int) * OMAP_AESS_COPY_FCT_ID_SIZE);
+	offset += sizeof(int) * OMAP_AESS_COPY_FCT_ID_SIZE;
+
+
+	printf("Task: %d %d\n", nb_task_id, offset - abe_size);
+	memcpy(buf + offset, &nb_task_id, sizeof(nb_task_id));
+	offset += sizeof(nb_task_id);
+	memcpy(buf + offset, aess_init_table.task, sizeof(struct omap_aess_task) * aess_init_table.nb_task);
+	offset += sizeof(struct omap_aess_task) * aess_init_table.nb_task;
+
+	printf("Port: %d %d\n", nb_task_id, offset - abe_size);
+	memcpy(buf + offset, abe_port_init, sizeof(abe_port_init));
+	offset += sizeof(abe_port_init);
+
+	printf("PP: %d %d\n", nb_task_id, offset - abe_size);
+	memcpy(buf + offset, &abe_port_init_pp, sizeof(abe_port_init_pp));
+	offset += sizeof(abe_port_init_pp);
+
+	printf("DL1: %d %d\n", nb_task_id, offset - abe_size);
+	memcpy(buf + offset, aess_dl1_mono_mixer, sizeof(aess_dl1_mono_mixer));
+	offset += sizeof(aess_dl1_mono_mixer);
+	printf("DL2: %d %d\n", nb_task_id, offset - abe_size);
+	memcpy(buf + offset, aess_dl2_mono_mixer, sizeof(aess_dl2_mono_mixer));
+	offset += sizeof(aess_dl2_mono_mixer);
+	printf("AUDUL: %d %d\n", nb_task_id, offset - abe_size);
+	memcpy(buf + offset, aess_audul_mono_mixer, sizeof(aess_audul_mono_mixer));
+	offset += sizeof(aess_audul_mono_mixer);
+
+	i = omap_aess_init_asrc_vx_ul(&data_asrc[0], 0);
+	printf("ASRC UL: %d %d\n", i, offset - abe_size);
+	memcpy(buf + offset, &data_asrc[0], sizeof(s32)*i);
+	offset += sizeof(s32)*i;
+	i = omap_aess_init_asrc_vx_ul(&data_asrc[0], -250);
+	printf("ASRC UL(-250): %d %d\n", i, offset - abe_size);
+	memcpy(buf + offset, &data_asrc[0], sizeof(s32)*i);
+	offset += sizeof(s32)*i;
+
+	i = omap_aess_init_asrc_vx_dl(&data_asrc[0], 0);
+	printf("ASRC DL: %d %d\n", i, offset - abe_size);
+	memcpy(buf + offset, &data_asrc[0], sizeof(s32)*i);
+	offset += sizeof(s32)*i;
+	printf("ASRC DL (250): %d %d\n", i, offset - abe_size);
+	i = omap_aess_init_asrc_vx_dl(&data_asrc[0], 250);
+	memcpy(buf + offset, &data_asrc[0], sizeof(s32)*i);
+	offset += sizeof(s32)*i;
+
+	/* Update ABE Header size */
+	abe_size = offset - abe_size;
+	printf("Size of ABE Header:%d\n", abe_size);
+
+	hdr.fw_header_size = abe_size;
+/* SEBG */
 dump:
 	memcpy(buf + offset, firmware, sizeof(firmware));
 	err = write(out_fd, buf, offset + sizeof(firmware));
@@ -476,3 +565,4 @@ err_open1:
 
 	return err;
 }
+
