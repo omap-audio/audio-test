@@ -47,6 +47,8 @@ Makefile
 src/Makefile
 plugins/Makefile
 plugins/omap4plus/Makefile
+plugins/omap4plus/coeffs/Makefile
+plugins/omap4plus/dapm/Makefile
 ])
 
 AC_OUTPUT

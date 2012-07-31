@@ -37,6 +37,7 @@ typedef	int32_t s32;
 #define SND_SOC_FILE_DAPM_PINS		3
 #define SND_SOC_FILE_DAPM_WIDGET	4
 #define SND_SOC_FILE_DAI_LINK		5
+#define SND_SOC_FILE_COEFFS		6
 
 #define SND_SOC_FILE_VENDOR_FW		1000
 #define SND_SOC_FILE_VENDOR_CONFIG	1001
@@ -51,7 +52,7 @@ struct snd_soc_file_hdr {
 	u32 type;
 	u32 vendor_type; /* optional vendor specific type info */
 	u32 version; /* optional vendor specific version details */
-	size_t size; /* data bytes, excluding this header */
+	u32 size; /* data bytes, excluding this header */
 	/* file data contents start here */
 };
 
@@ -64,12 +65,16 @@ struct snd_soc_file_hdr {
 #define SND_SOC_FILE_MIXER_SINGLE_VALUE_EXT	2
 #define SND_SOC_FILE_MIXER_DOUBLE_VALUE_EXT	3
 
+struct snd_soc_file_control_hdr {
+	char name[SND_SOC_FILE_TEXT_SIZE];
+	u32 type;
+};
+
 /* 
  * Mixer KControl.
  */
 struct snd_soc_file_mixer_control {
-	char name[SND_SOC_FILE_TEXT_SIZE];
-	u32 type;
+	struct snd_soc_file_control_hdr hdr;
 	s32 min;
 	s32 max;
 	s32 platform_max;
@@ -97,8 +102,7 @@ struct snd_soc_file_mixer_control {
  * Enumerated KControl
  */
 struct snd_soc_file_enum_control {
-	char name[SND_SOC_FILE_TEXT_SIZE];
-	u32 type;
+	struct snd_soc_file_control_hdr hdr;
 	u32 reg;
 	u32 reg2;
 	u32 shift_l;
@@ -121,7 +125,6 @@ struct snd_soc_file_enum_control {
  * Kcontrol Header
  */
 struct snd_soc_file_kcontrol {
-	u32 type;
 	u32 count; /* in kcontrols (based on type) */
 	/* kcontrols here */
 };
@@ -173,10 +176,45 @@ struct snd_soc_file_dapm_elems {
 };
 
 /*
+ * Coeffcient File Data.
+ */
+struct snd_soc_file_coeff_data {
+	u32 count; /* in bytes */
+	/* data here */
+};
+
+/*
+ * Generic Coefficients with Kcontrols
+ */
+
+#define SND_SOC_FILE_COEFF_ELEM(text, c) \
+	{.description = text, \
+	.coeffs = (const void*)c, \
+	.size = ARRAY_SIZE(c) * sizeof(c[0])}
+
+#define SND_SOC_FILE_COEFF(i, text, e) \
+	{.description = text, \
+	.elems = e, .id = i,\
+	.count = ARRAY_SIZE(e)}
+
+struct snd_soc_fw_coeff_elem {
+	const void *coeffs;		/* coefficient data */
+	u32 size;			/* coefficient data size bytes */
+	const char *description;	/* description e.g. "4kHz LPF 0dB" */
+};
+
+struct snd_soc_fw_coeff {
+	u32 id;
+	const char *description;	/* description e.g. "EQ1" */
+	int count;			/* number of coefficient elements */
+	const struct snd_soc_fw_coeff_elem *elems;	/* elements */
+};
+
+/*
  * PLUGIN API.
  */
 
-struct soc_dapm_plugin {
+struct snd_soc_fw_plugin {
 	const struct snd_soc_dapm_route *graph;
 	int graph_count;
 
@@ -185,6 +223,11 @@ struct soc_dapm_plugin {
 
 	const struct snd_kcontrol_new *kcontrols;
 	int kcontrol_count;
+
+	const struct snd_soc_fw_coeff *coeffs;
+	int coeff_count;
+
+	int version;
 };
 
 /*
@@ -765,11 +808,12 @@ enum snd_soc_dapm_type {
 	snd_soc_dapm_post = 19,			/* machine specific post widget - exec last */
 	snd_soc_dapm_supply = 20,		/* power/clock supply */
 	snd_soc_dapm_regulator_supply = 21,	/* external regulator */
-	snd_soc_dapm_aif_in = 22,		/* audio interface input */
-	snd_soc_dapm_aif_out = 23,		/* audio interface output */
-	snd_soc_dapm_siggen = 24,		/* signal generator */
-	snd_soc_dapm_dai = 25,		/* link to DAI structure */
-	snd_soc_dapm_dai_link = 26,		/* link between two DAI structures */
+	snd_soc_dapm_clock_supply = 22,	/* external clock */
+	snd_soc_dapm_aif_in = 23,		/* audio interface input */
+	snd_soc_dapm_aif_out = 24,		/* audio interface output */
+	snd_soc_dapm_siggen = 25,		/* signal generator */
+	snd_soc_dapm_dai = 26,		/* link to DAI structure */
+	snd_soc_dapm_dai_link = 27,		/* link between two DAI structures */
 };
 
 /* dapm widget */
@@ -796,7 +840,7 @@ struct snd_soc_dapm_widget {
 
 struct soc_fw_priv;
 
-struct soc_fw_priv *socfw_new(const char *name);
+struct soc_fw_priv *socfw_new(const char *name, int verbose);
 void socfw_free(struct soc_fw_priv *soc_fw);
 int socfw_import_plugin(struct soc_fw_priv *soc_fw, const char *name);
 int socfw_import_vendor(struct soc_fw_priv *soc_fw, const char *name, int type);

@@ -33,7 +33,7 @@
 
 static void usage(char *name)
 {
-	fprintf(stdout, "usage: %s [options] outfile\n\n", name);
+	fprintf(stdout, "usage: %s outfile [options]\n\n", name);
 
 	fprintf(stdout, "Add plugin data		[-p plugin]\n");
 	fprintf(stdout, "Add controls			[-c controls]\n");
@@ -52,15 +52,15 @@ int main(int argc, char *argv[])
 	if (argc < 4)
 		usage(argv[0]);
 
-	soc_fw = socfw_new(argv[argc - 1]);
+	soc_fw = socfw_new(argv[1], 1);
 	if (soc_fw < 0) {
 		fprintf(stderr, "failed to open %s\n", argv[argc - 1]);
 		exit(0);
 	}
 
-	for (i = 1 ; i < argc - 1; i++) {
+	for (i = 2 ; i < argc - 1; i++) {
 
-		/* plugin - kcontrols, DAPM graph, widgets, pins etc */
+		/* plugin - kcontrols, DAPM graph, widgets, pins, coeffcients etc */
 		if (!strcmp("-p", argv[i])) {
 			if (++i == argc)
 				usage(argv[0]);
