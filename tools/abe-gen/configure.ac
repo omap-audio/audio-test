@@ -47,7 +47,7 @@ AC_CONFIG_FILES([
 Makefile
 src/Makefile
 fw/Makefile
-coeffs/Makefile
+tasks/Makefile
 ])
 
 AC_OUTPUT

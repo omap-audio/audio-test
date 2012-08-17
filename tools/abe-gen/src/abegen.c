@@ -34,220 +34,145 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
-
-#define ABE_COEFF_MAGIC	0xABEABE00
-#define ABE_COEFF_VERSION	1
-#define ABE_FIRMWARE_VERSION	(firmware[0])
-
-#define NAME_SIZE	20
-#define TEXT_SIZE	20
-#define NUM_TEXTS	10
-
-#define MAX_PROFILES 	8  /* Number of supported profiles */
-#define MAX_COEFFS 	25      /* Number of coefficients for profiles */
-
-
-#define MAX_COEFF_SIZE	(NUM_EQUALIZERS * MAX_PROFILES * MAX_COEFFS * sizeof(int32_t))
-//#define MAX_FW_SIZE	(sizeof(firmware) + MAX_COEFF_SIZE)
-#define MAX_FW_SIZE	0
-#define MAX_FILE_SIZE	(sizeof(struct header) + \
-			 MAX_FW_SIZE + \
-			 NUM_EQUALIZERS * sizeof(struct config))
-
-#define ARRAY_SIZE(x)	(sizeof(x) / sizeof(x[0]))
-#define NUM_COEFFS(x)	(sizeof(x[0]) / sizeof(x[0][0]))
-#define NUM_PROFILES(x)	(sizeof(x) / sizeof(x[0]))
+#include <dlfcn.h>
 
 #include "abegen.h"
 
+#define NAME_SIZE	256
 
-
-struct config {
+static int abe_dlopen_fw(const char *fw_version)
+{
+	void *plugin_handle;
 	char name[NAME_SIZE];
-	uint32_t count;
-	uint32_t coeff;
-	char texts[NUM_TEXTS][TEXT_SIZE];
-};
+	struct abe_firmware *fw;
+	int ret, fd;
+
+	fprintf(stdout, "FW: loading %s\n", fw_version);
+	snprintf(name, NAME_SIZE, "fw%s", fw_version);
+
+	/* load the plugin */
+	plugin_handle = dlopen(name, RTLD_LAZY);
+	if (!plugin_handle) {
+		fprintf(stderr, "error: failed to open %s: %s\n", name,
+			dlerror());
+		return -EINVAL;
+	}
+
+	fw = dlsym(plugin_handle, "fw");
+	if (!fw) {
+		fprintf(stderr, "error: failed to get symbol. %s\n",
+			dlerror());
+		dlclose(plugin_handle);
+		return -EINVAL;
+	}
+
+	/* dump some plugin info */
+	fprintf(stdout, "FW: loaded %d bytes\n", fw->size);
 	
+	/* save data to FW file */
+	fd = open("omap_abe_fw", O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
+	if (fd < 0) {
+		fprintf(stderr, "failed to open %s err %d\n", "omap_abe_fw", fd);
+		ret = fd;
+		goto out;
+	}
 
-struct header {
-	uint32_t magic;	/* magic number */
-	uint32_t crc;	/* optional crc */
-	uint32_t firmware_size;	/* payload size */
-	uint32_t coeff_size;	/* payload size */
-	uint32_t coeff_version;	/* coefficent version */
-	uint32_t firmware_version;	/* min version of ABE firmware required */
-	uint32_t num_equ;
-	struct config equ[];
-};
+	ret = write(fd, fw->text, fw->size * 4);
+	close(fd);
 
-#define NUM_EQUALIZERS		6
-#if 0
-struct header hdr = {
-	.magic		= ABE_COEFF_MAGIC,
-	.num_equ 	= NUM_EQUALIZERS,
-	/*
-	 * must match the IDs order in ABE HAL:
-	 * DL1, DL2L, DL2R, AMIC, DMIC, SDT
-	 */
-	.equ	= {{
-		.name = DL1_EQU_NAME,
-		.count = NUM_PROFILES(dl1_equ_coeffs),
-		.coeff = NUM_COEFFS(dl1_equ_coeffs),
-		.texts	= {DL1_EQU_TEXTS},},
-		{
-		.name = "DL2 Left Equalizer",
-		.count = NUM_PROFILES(dl2l_equ_coeffs),
-		.coeff = NUM_COEFFS(dl2l_equ_coeffs),
-		.texts	= {
-				"Flat response",
-				"High-pass 0dB",
-				"High-pass -12dB",
-				"High-pass -20dB",
-				"450Hz High-pass",
-		},},
-		{
-		.name = "DL2 Right Equalizer",
-		.count = NUM_PROFILES(dl2r_equ_coeffs),
-		.coeff = NUM_COEFFS(dl2r_equ_coeffs),
-		.texts	= {
-				"Flat response",
-				"High-pass 0dB",
-				"High-pass -12dB",
-				"High-pass -20dB",
-				"450Hz High-pass",
-		},},
-		{
-		.name = "Sidetone Equalizer",
-		.count = NUM_PROFILES(sdt_equ_coeffs),
-		.coeff = NUM_COEFFS(sdt_equ_coeffs),
-		.texts	= {
-				"Flat response",
-				"High-pass 0dB",
-				"High-pass -12dB",
-				"High-pass -18dB",
-		},},
-		{
-		.name = "AMIC Equalizer",
-		.count = NUM_PROFILES(amic_equ_coeffs),
-		.coeff = NUM_COEFFS(amic_equ_coeffs),
-		.texts	= {
-				"High-pass 0dB",
-				"High-pass -12dB",
-				"High-pass -18dB",
-		},},
-		{
-		.name = "DMIC Equalizer",
-		.count = NUM_PROFILES(dmic_equ_coeffs),
-		.coeff = NUM_COEFFS(dmic_equ_coeffs),
-		.texts	= {
-				"High-pass 0dB",
-				"High-pass -12dB",
-				"High-pass -18dB",
-		},},
-	},
-};
-#endif
-/* OMAP4 ABE Firmware Generation too.
- *
- * Firmware and coefficients are generated using this tool.
- * 
- * Header is at offset 0x0. Coefficients are appended to the end of the header.
- * Firmware is appended to the end of the coefficients.
- */
+out:
+	dlclose(plugin_handle);
+	return ret;
+}
+
+static int abe_dlopen_tasks(const char *fw_version)
+{
+	void *plugin_handle;
+	char name[NAME_SIZE];
+	struct abe_firmware *fw;
+	int ret, fd;
+
+	fprintf(stdout, "Tasks: loading %s\n", fw_version);
+	snprintf(name, NAME_SIZE, "fw%s", fw_version);
+
+	/* load the plugin */
+	plugin_handle = dlopen(name, RTLD_LAZY);
+	if (!plugin_handle) {
+		fprintf(stderr, "error: failed to open %s: %s\n", name,
+			dlerror());
+		return -EINVAL;
+	}
+
+	fw = dlsym(plugin_handle, "fw");
+	if (!fw) {
+		fprintf(stderr, "error: failed to get symbol. %s\n",
+			dlerror());
+		dlclose(plugin_handle);
+		return -EINVAL;
+	}
+
+	/* dump some plugin info */
+	fprintf(stdout, "FW: loaded %d bytes\n", fw->size);
+	
+	/* save data to FW file */
+	fd = open("omap_abe_tasks", O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
+	if (fd < 0) {
+		fprintf(stderr, "failed to open %s err %d\n", "omap_abe_tasks", fd);
+		ret = fd;
+		goto out;
+	}
+
+	ret = write(fd, fw->text, fw->size * 4);
+	close(fd);
+
+out:
+	dlclose(plugin_handle);
+	return ret;
+}
+
+static void usage(char *name)
+{
+	fprintf(stdout, "usage: %s [options]\n\n", name);
+
+	fprintf(stdout, "Create firmware	[-f version]\n");
+	fprintf(stdout, "Create tasks		[-t version]\n");
+	exit(0);
+}
+
 int main(int argc, char *argv[])
 {
-	int i, err = 0, in_fd, out_fd, offset = 0;
-	FILE *out_legacy_fd = NULL;
-	uint32_t *buf_legacy;
-	char *buf;
-#if 0
-	if (argc < 2) {
-		printf("%s: outfile [hexdump]\n", argv[0]);
-		return 0;
-	}
+	int i, ret;
+	
+	if (argc < 2)
+		usage(argv[0]);
 
-	buf = malloc(MAX_FILE_SIZE);
-	if (buf == NULL)
-		return -ENOMEM;
-	bzero(buf, MAX_FILE_SIZE);
+	for (i = 1 ; i < argc - 1; i++) {
 
-	/* open output file */
-	out_fd = open(argv[1], O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
-	if (out_fd < 0) {
-		printf("failed to open %s err %d\n",
-			argv[1], out_fd);
-		err = out_fd;
-		goto err_open1;
-	}
+		/* FW */
+		if (!strcmp("-f", argv[i])) {
+			if (++i == argc)
+				usage(argv[0]);
 
-	/* open output file for FW hexdump */
-	if (argc == 3) {
-		out_legacy_fd = fopen(argv[2], "w");
-		if (out_legacy_fd == NULL) {
-			printf("failed to open %s\n", argv[2]);
-			return 0;
-			goto err_open2;
+			abe_dlopen_fw(argv[i]);
+			continue;
+		}
+
+		/* Tasks */
+		if (!strcmp("-t", argv[i])) {
+			if (++i == argc)
+				usage(argv[0]);
+
+			abe_dlopen_tasks(argv[i]);
+			continue;
 		}
 	}
 
-
-//	hdr.firmware_version = ABE_FIRMWARE_VERSION;
-//	hdr.firmware_size = sizeof(firmware);
-	hdr.coeff_version = ABE_COEFF_VERSION;
-	offset = sizeof(hdr) + NUM_EQUALIZERS * sizeof(struct config);
-
-	/*
-	 * must match the IDs order in ABE HAL:
-	 * DL1, DL2L, DL2R, AMIC, DMIC, SDT
-	 */
-	memcpy(buf + offset, dl1_equ_coeffs, sizeof(dl1_equ_coeffs));
-	offset += sizeof(dl1_equ_coeffs);
-
-	memcpy(buf + offset, dl2l_equ_coeffs, sizeof(dl2l_equ_coeffs));
-	offset += sizeof(dl2l_equ_coeffs);
-
-	memcpy(buf + offset, dl2r_equ_coeffs, sizeof(dl2r_equ_coeffs));
-	offset += sizeof(dl2r_equ_coeffs);
-
-	memcpy(buf + offset, sdt_equ_coeffs, sizeof(sdt_equ_coeffs));
-	offset += sizeof(sdt_equ_coeffs);
-
-	memcpy(buf + offset, amic_equ_coeffs, sizeof(amic_equ_coeffs));
-	offset += sizeof(amic_equ_coeffs);
-
-	memcpy(buf + offset, dmic_equ_coeffs, sizeof(dmic_equ_coeffs));
-	offset += sizeof(dmic_equ_coeffs);
-
-	hdr.coeff_size = offset - sizeof(hdr);
-
-	memcpy(buf, &hdr, sizeof(hdr) + NUM_EQUALIZERS * sizeof(struct config));
-
-dump:
-//	memcpy(buf + offset, firmware, sizeof(firmware));
-//	err = write(out_fd, buf, offset + sizeof(firmware));
-	if (err <= 0)
-		goto err_write;
-
-	if (argc == 3) {
-		buf_legacy = (uint32_t *)buf;
-	//	for (i = 0; i < (offset + sizeof(firmware)) >> 2; i++)
-			fprintf(out_legacy_fd, "0x%08x,\n", buf_legacy[i]);
-	}
-
-err_write:
-	if (out_legacy_fd)
-		fclose(out_legacy_fd);
-err_open2:
-	close (out_fd);
-err_open1:
-	free(buf);
-#endif
-	return err;
+	return 0;
 }

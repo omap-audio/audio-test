@@ -1,5 +1,5 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
-SUBDIRS = src fw coeffs
+SUBDIRS = src fw tasks
 
