@@ -63,13 +63,14 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <getopt.h>
 #include <sys/stat.h>
 #include <math.h>
 
-#include "abe_cm_addr.h"
-#include "abe_dm_addr.h"
-#include "abe_sm_addr.h"
-#include "abe_functionsid.h"
+#include "../abe_hal/abe_cm_linux.h"
+#include "../abe_hal/abe_dm_linux.h"
+#include "../abe_hal/abe_sm_linux.h"
+#include "../abe_hal/abe_functionsid.h"
 
 
 #define NAME_SIZE	30
@@ -79,6 +80,21 @@
 #define MAX_PROFILES 	8  /* Number of supported profiles */
 #define MAX_COEFFS 	25      /* Number of coefficients for profiles */
 
+/* Scheduler table is an array of 25 x 8 x 2B */
+#define SCHEDULER_SLOTS	25
+#define SCHEDULER_IDXS	8
+
+/* Option flags */
+#define OPT_VERSION	0x0001
+#define OPT_OPP		0x0002
+#define OPT_SCHED	0x0004
+#define OPT_BUFFERS	0x0008
+#define OPT_GAINS	0x0010
+#define OPT_ROUTES	0x0020
+#define OPT_ATC		0x0040
+#define OPT_IODESC	0x0080
+#define OPT_PPDESC	0x0100
+#define OPT_ALL		0xFFFF
 
 #define ARRAY_SIZE(x)	(sizeof(x) / sizeof(x[0]))
 
@@ -112,15 +128,27 @@ uint32_t cmem[] = {
 };
 #endif
 
-
-#define NAME_SIZE 30
-
 struct buffer {
 	char name[NAME_SIZE];
 	uint32_t addr;
 	int size;
 	int bank;
 };
+
+#define VX_DL_16K_LIST		0x0001
+#define VX_DL_8K_LIST		0x0002
+#define BT_DL_8K_LIST		0x0004
+#define BT_DL_16K_LIST		0x0008
+#define MM_DL_LIST		0x0010
+#define EARP_LIST		0x0020
+#define IHF_LIST		0x0040
+#define AMIC_UL_LIST		0x0080
+#define BT_UL_8K_LIST		0x0100
+#define BT_UL_16K_LIST		0x0200
+#define VX_UL_8K_LIST		0x0400
+#define VX_UL_16K_LIST		0x0800
+
+#define BUFF_LIST_ALL		0x0FFF
 
 struct buffer vx_dl_16k_list[] = {
 	{
@@ -599,6 +627,10 @@ struct ping_pong_desc {
 	unsigned char smem_addr;
 	unsigned char atc_irq_data;
 	unsigned char counter;
+	unsigned short dummy1;
+	unsigned short dummy2;
+	unsigned short split_addr1;
+	unsigned short dummy3;
 	unsigned short workbuff_baseaddr;
 	unsigned short workbuff_samples;
 	unsigned short nextbuff0_baseaddr;
@@ -694,7 +726,7 @@ struct ping_pong_desc {
 
 int atc_to_io[OMAP_ABE_ATC_TO_PORT_SIZE][2] = {
 	{DMIC_DMA_REQ,  DMIC_PORT},
-	{McPDM_DMA_DL,  PDM_UL_PORT},
+	{McPDM_DMA_DL,  PDM_DL_PORT},
 	{McPDM_DMA_UP,  PDM_UL_PORT},
 	{MCBSP1_DMA_TX, BT_VX_DL_PORT},
 	{MCBSP1_DMA_RX, BT_VX_UL_PORT},
@@ -709,7 +741,7 @@ int atc_to_io[OMAP_ABE_ATC_TO_PORT_SIZE][2] = {
 	{CBPr_DMA_RTX6, VIB_DL_PORT},
 };
 
-#define OMAP_ABE_ID_TO_FCT_SIZE    20
+#define OMAP_ABE_ID_TO_FCT_SIZE    21
 
 char *id_to_fct[OMAP_ABE_ID_TO_FCT_SIZE] = {
 	"NULL",
@@ -969,12 +1001,14 @@ char *get_atc_source_name(int source)
 	case 0x0C:
 		return "DMIC_UP";
 	case 0x0D:
-		return "MCPDM_DL";
+		return "MCPDM_UL";
 	case 0x0E:
 	case 0x0F:
 	case 0x10:
 	case 0x11:
 		return "RESERVED";
+	case 0x3F:
+		return "CBPr";
 	}
 
 	return "INVALID";
@@ -985,9 +1019,9 @@ char *get_format_name_from_iterfactor(int factor)
 {
 	switch (factor) {
 	case 1:
-		return "MONO_MSB, MONO_RSHIFTED_16 or STEREO_16_16";
+		return "MONO_MSB, MONO_RSHIFTED_16, STEREO_16_16";
 	case 2:
-		return "STEREO_MSB or STEREO_RSHIFTED_16";
+		return "STEREO_MSB, STEREO_RSHIFTED_16";
 	case 3:
 		return "THREE_MSB";
 	case 4:
@@ -1047,6 +1081,8 @@ char *get_atc_dest_name(int dest)
 		return "RESERVED";
 	case 0x15:
 		return "MCPDM_ON";
+	case 0x3F:
+		return "CBPr";
 	}
 
 	return "INVALID";
@@ -1062,97 +1098,138 @@ char *get_dma_req_name(int dma_req)
 
 	return supported_dma_reqs[dma_req];
 }
+
+void print_release(void)
+{
+	uint32_t release;
+	int maj, min, rev;
+
+	release = dmem[OMAP_ABE_D_VERSION_ADDR/4];
+	rev = release & 0xF;
+	min = (release >> 4) & 0xFF;
+	maj = (release >> 12) & 0xFF;
+	printf("ABE release: %02x.%02x.%1x\n\n", maj, min, rev);
+}
+
+void print_opp(void)
+{
+	uint32_t task_slot = dmem[OMAP_ABE_D_MAXTASKBYTESINSLOT_ADDR/4];
+
+	printf("OPP: ");
+
+	switch (task_slot) {
+	case 0x04:
+		printf("25\n\n");
+		break;
+	case 0x0C:
+		printf("50\n\n");
+		break;
+	case 0x10:
+		printf("100\n\n");
+		break;
+	default:
+		printf("UNKNOWN\n\n");
+		break;
+	}
+}
+
 void print_atc_desc(struct atc_desc *atc_desc, int dma_req)
 {
-	printf("*****************************************\n");
-	printf(" ATC Descriptor %s\n", get_dma_req_name(dma_req));
-	printf("*****************************************\n");
-	printf("RDPT     : 0x%02x\n", atc_desc->rdpt);
-	printf("RESERVED0: 0x%1x\n", atc_desc->reserved0);
-	printf("CBSIZE   : 0x%02x\n", atc_desc->cbsize);
-	printf("IRQDEST  : 0x%1x\n", atc_desc->irqdest);
-	printf("CBERR    : 0x%1x\n", atc_desc->cberr);
-	printf("RESERVED1: 0x%02x\n", atc_desc->reserved1);
-	printf("CBDIR    : 0x%1x\n", atc_desc->cbdir);
-	printf("NW       : 0x%1x\n", atc_desc->nw);
-	printf("WRPT     : 0x%02x\n", atc_desc->wrpt);
-	printf("RESERVED2: 0x%1x\n", atc_desc->reserved2);
-	printf("BADD     : 0x%03x\n", atc_desc->badd);
-	printf("ITER     : 0x%02x\n", atc_desc->iter);
-	printf("SRCID    : 0x%02x\n", atc_desc->srcid);
-	printf("DESTID   : 0x%02x\n", atc_desc->destid);
-	printf("DESEN    : 0x%1x\n", atc_desc->desen);
+	printf("|---------------------------------|\n");
+	printf("| ATC Descriptor %-16s |\n", get_dma_req_name(dma_req));
+	printf("|---------------------------------|\n");
+	printf("| %-13s | 0x%02x            |\n", "RDPT", atc_desc->rdpt);
+	printf("| %-13s | 0x%1x             |\n", "RESERVED0", atc_desc->reserved0);
+	printf("| %-13s | 0x%02x            |\n", "CBSIZE", atc_desc->cbsize);
+	printf("| %-13s | 0x%1x             |\n", "IRQDEST", atc_desc->irqdest);
+	printf("| %-13s | 0x%1x             |\n", "CBERR", atc_desc->cberr);
+	printf("| %-13s | 0x%02x            |\n", "RESERVED1", atc_desc->reserved1);
+	printf("| %-13s | 0x%1x             |\n", "CBDIR", atc_desc->cbdir);
+	printf("| %-13s | 0x%1x             |\n", "NW", atc_desc->nw);
+	printf("| %-13s | 0x%02x            |\n", "WRPT", atc_desc->wrpt);
+	printf("| %-13s | 0x%1x             |\n", "RESERVED2", atc_desc->reserved2);
+	printf("| %-13s | 0x%03x           |\n", "BADD", atc_desc->badd);
+	printf("| %-13s | 0x%02x            |\n", "ITER", atc_desc->iter);
+	printf("| %-13s | 0x%02x            |\n", "SRCID", atc_desc->srcid);
+	printf("| %-13s | 0x%02x            |\n", "DESTID", atc_desc->destid);
+	printf("| %-13s | 0x%1x             |\n", "DESEN", atc_desc->desen);
+	printf("|---------------------------------|\n\n");
 }
 
 void interpret_atc_desc(struct atc_desc *atc_desc, int dma_req)
 {
-	printf("*****************************************\n");
-	printf(" Decoded ATC Descriptor %s\n", get_dma_req_name(dma_req));
-	printf("*****************************************\n");
-	printf("Read pointer relative address : 0x%02x\n", atc_desc->rdpt);
-	printf("Circular buffer size          : 0x%02x\n", atc_desc->cbsize);
-	printf("IRQ destination               : %s\n", atc_desc->irqdest ? "MCU" : "DSP");
-	printf("Report circular buffer errors : %d\n", atc_desc->cberr);
-	printf("Circular buffer direction     : %s (wrt AESS)\n", atc_desc->cbdir ? "Out" : "In");
-	printf("Write pointer relative address: 0x%02x\n", atc_desc->wrpt);
-	printf("Base address                  : 0x%02x\n", atc_desc->badd);
-	printf("Iteration                     : 0x%02x (%d)\n", atc_desc->iter, atc_desc->iter);
-	printf("Source ID peripheral          : %s\n", get_atc_source_name(atc_desc->srcid));
-	printf("Destination ID peripheral     : %s\n", get_atc_dest_name(atc_desc->destid));
-	printf("Descriptor activation         : %s\n", atc_desc->desen ? "Active" : "Not Active");
+	printf("|-------------------------------------------------|\n");
+	printf("| ATC Descriptor Decoded %-24s |\n", get_dma_req_name(dma_req));
+	printf("|-------------------------------------------------|\n");
+	printf("| %-30s | 0x%02x           |\n", "Read pointer relative address", atc_desc->rdpt);
+	printf("| %-30s | 0x%02x           |\n", "Circular buffer size", atc_desc->cbsize);
+	printf("| %-30s | %-14s |\n", "IRQ destination", atc_desc->irqdest ? "MCU" : "DSP");
+	printf("| %-30s | %-3d            |\n", "Report circular buffer errors", atc_desc->cberr);
+	printf("| %-30s | %-3s (wrt AESS) |\n", "Circular buffer direction", atc_desc->cbdir ? "Out" : "In");
+	printf("| %-30s | 0x%02x           |\n", "Write pointer relative address", atc_desc->wrpt);
+	printf("| %-30s | 0x4018%04x     |\n", "Base address", atc_desc->badd << 4);
+	printf("| %-30s | %-14d |\n", "Iteration", atc_desc->iter);
+	printf("| %-30s | %-14s |\n", "Source ID peripheral", get_atc_source_name(atc_desc->srcid));
+	printf("| %-30s | %-14s |\n", "Destination ID peripheral", get_atc_dest_name(atc_desc->destid));
+	printf("| %-30s | %-14s |\n", "Descriptor activation", atc_desc->desen ? "Active" : "Not Active");
+	printf("|-------------------------------------------------|\n\n");
 }
 
 void print_ping_pong_desc(struct ping_pong_desc *pp_desc)
 {
-	printf("**********************\n");
-	printf(" Ping Pong Descriptor \n");
-	printf("**********************\n");
-	printf("drift_asrc        : %d\n", pp_desc->drift_asrc);
-	printf("drift_io          : %d\n", pp_desc->drift_io);
-	printf("hw_ctrl_addr      : 0x%04x\n", pp_desc->hw_ctrl_addr);
-	printf("copy_func_index   : %d\n", pp_desc->copy_func_index);
-	printf("x_io              : %d\n", pp_desc->x_io);
-	printf("data_size         : %d\n", pp_desc->data_size);
-	printf("smem_addr         : 0x%02x\n", pp_desc->smem_addr);
-	printf("atc_irq_data      : 0x%02x\n", pp_desc->atc_irq_data);
-	printf("counter           : %d\n", pp_desc->counter);
-	printf("workbuff_baseaddr : %04x\n", pp_desc->workbuff_baseaddr);
-	printf("workbuff_samples  : %04x\n", pp_desc->workbuff_samples);
-	printf("nextbuff0_baseaddr: %04x\n", pp_desc->nextbuff0_baseaddr);
-	printf("nextbuff0_samples : %04x\n", pp_desc->nextbuff0_samples);
-	printf("nextbuff1_baseaddr: %04x\n", pp_desc->nextbuff1_baseaddr);
-	printf("nextbuff1_samples : %04x\n", pp_desc->nextbuff1_samples);
+	printf("|---------------------------------|\n");
+	printf("| Ping Pong Descriptor            |\n");
+	printf("|---------------------------------|\n");
+	printf("| %-22s | %-6d |\n", "drift_asrc", pp_desc->drift_asrc);
+	printf("| %-22s | %-6d |\n", "drift_io", pp_desc->drift_io);
+	printf("| %-22s | 0x%04x |\n", "hw_ctrl_addr", pp_desc->hw_ctrl_addr);
+	printf("| %-22s | %-6d |\n", "copy_func_index", pp_desc->copy_func_index);
+	printf("| %-22s | %-6d |\n", "x_io", pp_desc->x_io);
+	printf("| %-22s | %-6d |\n", "data_size", pp_desc->data_size);
+	printf("| %-22s | 0x%02x   |\n", "smem_addr", pp_desc->smem_addr);
+	printf("| %-22s | 0x%02x   |\n", "atc_irq_data", pp_desc->atc_irq_data);
+	printf("| %-22s | %-6d |\n", "counter", pp_desc->counter);
+	printf("| %-22s | 0x%04x |\n", "workbuff_baseaddr", pp_desc->workbuff_baseaddr);
+	printf("| %-22s | %-6d |\n", "workbuff_samples", pp_desc->workbuff_samples);
+	printf("| %-22s | 0x%04x |\n", "nextbuff0_baseaddr", pp_desc->nextbuff0_baseaddr);
+	printf("| %-22s | %-6d |\n", "nextbuff0_samples", pp_desc->nextbuff0_samples);
+	printf("| %-22s | 0x%04x |\n", "nextbuff1_baseaddr", pp_desc->nextbuff1_baseaddr);
+	printf("| %-22s | %-6d |\n", "nextbuff1_samples", pp_desc->nextbuff1_samples);
+	printf("|---------------------------------|\n\n");
 }
 
 void interpret_ping_pong_desc(struct ping_pong_desc *pp_desc)
 {
-	printf("******************************\n");
-	printf(" Decoded Ping Pong Descriptor \n");
-	printf("******************************\n");
-	printf("Ping base address    : 0x4908%04x\n", pp_desc->nextbuff0_baseaddr);
-	printf("Pong base address    : 0x4908%04x\n", pp_desc->nextbuff1_baseaddr);
-	if (pp_desc->nextbuff0_samples != pp_desc->nextbuff1_samples)
-		printf("Ping size (%d B) doesn't match pong size (%d B)\n",
-			pp_desc->nextbuff0_samples * 4, pp_desc->nextbuff1_samples * 4);
-	else
-		printf("Ping-Pong buffer size: %d B (%d samples)\n",
-			pp_desc->nextbuff0_samples * 8, pp_desc->nextbuff0_samples * 2);
+	int frame_bytes = pp_desc->data_size << 2;
+
+	printf("|-----------------------------------------------------------------|\n");
+	printf("| Decoded Ping Pong Descriptor                                    |\n");
+	printf("|-----------------------------------------------------------------|\n");
+	printf("| %-24s | 0x4908%04x%-26s |\n", "Ping base address", pp_desc->nextbuff0_baseaddr, "");
+	printf("| %-24s | 0x4908%04x%-26s |\n", "Pong base address", pp_desc->nextbuff1_baseaddr, "");
+	printf("| %-24s | %-36d |\n", "Ping-Pong period bytes", pp_desc->nextbuff0_samples * frame_bytes);
+	/* Ping-pong desc samples term refers to period frames */
+	printf("| %-24s | %-36d |\n", "Ping-Pong period frames", pp_desc->nextbuff0_samples);
+
 	if (pp_desc->workbuff_baseaddr == pp_desc->nextbuff0_baseaddr)
-		printf("Current buffer       : Ping\n");
+		printf("| %-24s | %-36s |\n", "Current buffer", "Ping");
 	else if (pp_desc->workbuff_baseaddr == pp_desc->nextbuff1_baseaddr)
-		printf("Current buffer       : Pong\n");
+		printf("| %-24s | %-36s |\n", "Current buffer", "Pong");
 	else
-		printf("Current buffer       : invalid (0x4908%04x)\n", pp_desc->workbuff_baseaddr);
-	printf("Remaining samples    : %d\n", pp_desc->workbuff_samples);
-	if (pp_desc->data_size == 0)
-		printf("Channels             : Mono\n");
-	else if (pp_desc->data_size == 1)
-		printf("Channels             : Stereo\n");
-	else
-		printf("Channels             : invalid (%d)\n", pp_desc->data_size);
-	printf("Iterations           : %d\n", pp_desc->x_io * pp_desc->data_size);
-	printf("MCU IRQ register     : %s (0x%04x)\n", get_reg_name(pp_desc->hw_ctrl_addr), pp_desc->hw_ctrl_addr);
-	printf("MCU IRQ data         : 0x%02x\n", pp_desc->atc_irq_data);
+		printf("| %-24s | INVALID (0x4908%04x)%-16s |\n", "Current buffer",pp_desc->workbuff_baseaddr, "");
+
+	printf("| %-24s | %-36d |\n", "Remaining samples", pp_desc->workbuff_samples);
+	printf("| %-24s | %-36d |\n", "Iterations", pp_desc->x_io * pp_desc->data_size);
+	printf("| %-24s | %-36s |\n", "MCU IRQ register", get_reg_name(pp_desc->hw_ctrl_addr));
+	printf("| %-24s | 0x%02x%-32s |\n", "MCU IRQ data", pp_desc->atc_irq_data, "");
+	printf("|-----------------------------------------------------------------|\n");
+
+	if (pp_desc->nextbuff0_samples != pp_desc->nextbuff1_samples)
+		printf(" Note: Ping size (%d B) does not match pong size (%d B)\n",
+		       pp_desc->nextbuff0_samples * frame_bytes,
+		       pp_desc->nextbuff1_samples * frame_bytes);
+
+	printf("\n");
 }
 
 int parse_atc_desc(struct atc_desc *atc_desc, int dma_req)
@@ -1176,67 +1253,65 @@ int parse_ping_pong_desc(struct ping_pong_desc *pp_desc)
 
 void print_io_desc(struct io_desc *io_desc, int port)
 {
-	printf("**********************************\n");
-	printf(" IO Descriptor %s\n", get_port_name(port));
-	printf("**********************************\n");
-	printf("drift_asrc        : %d\n", io_desc->drift_asrc);
-	printf("drift_io          : %d\n", io_desc->drift_io);
-	printf("io_type_idx       : %d\n", io_desc->io_type_idx);
-	printf("samp_size         : 0x%02x\n", io_desc->samp_size);
-	printf("flow_counter      : %d\n", io_desc->flow_counter);
-	printf("hw_ctrl_addr      : 0x%04x\n", io_desc->hw_ctrl_addr);
-	printf("atc_irq_data      : 0x%02x\n", io_desc->atc_irq_data);
-	printf("direction_rw      : 0x%02x\n", io_desc->direction_rw);
-	printf("repeat_last_samp  : 0x%02x\n", io_desc->repeat_last_samp);
-	printf("nsamp             : %d\n", io_desc->nsamp);
-	printf("x_io              : %d\n", io_desc->x_io);
-	printf("on_off            : 0x%02x\n", io_desc->on_off);
-	printf("split_addr1       : 0x%04x\n", io_desc->split_addr1);
-	printf("split_addr2       : 0x%04x\n", io_desc->split_addr2);
-	printf("split_addr3       : 0x%04x\n", io_desc->split_addr3);
-	printf("before_f_index    : 0x%02x\n", io_desc->before_f_index);
-	printf("after_f_index     : 0x%02x\n", io_desc->after_f_index);
-	printf("smem_addr1        : 0x%04x\n", io_desc->smem_addr1);
-	printf("atc_address1      : 0x%04x\n", io_desc->atc_address1);
-	printf("atc_pointer_saved1: 0x%04x\n", io_desc->atc_pointer_saved1);
-	printf("data_size1        : 0x%02x\n", io_desc->data_size1);
-	printf("copy_f_index1     : %d\n", io_desc->copy_f_index1);
-	printf("smem_addr2        : 0x%04x\n", io_desc->smem_addr2);
-	printf("atc_address2      : 0x%04x\n", io_desc->atc_address2);
-	printf("atc_pointer_saved2: 0x%04x\n", io_desc->atc_pointer_saved2);
-	printf("data_size2        : 0x%02x\n", io_desc->data_size2);
-	printf("copy_f_index2     : %d\n", io_desc->copy_f_index2);
+	printf("|---------------------------------|\n");
+	printf("| IO Descriptor %-17s |\n", get_port_name(port));
+	printf("|---------------------------------|\n");
+	printf("| %-22s | %-6d |\n", "drift_asrc", io_desc->drift_asrc);
+	printf("| %-22s | %-6d |\n", "drift_io", io_desc->drift_io);
+	printf("| %-22s | %-6d |\n", "io_type_idx", io_desc->io_type_idx);
+	printf("| %-22s | 0x%02x   |\n", "samp_size", io_desc->samp_size);
+	printf("| %-22s | %-6d |\n", "flow_counter", io_desc->flow_counter);
+	printf("| %-22s | 0x%04x |\n", "hw_ctrl_addr", io_desc->hw_ctrl_addr);
+	printf("| %-22s | 0x%02x   |\n", "atc_irq_data", io_desc->atc_irq_data);
+	printf("| %-22s | 0x%02x   |\n", "direction_rw", io_desc->direction_rw);
+	printf("| %-22s | 0x%02x   |\n", "repeat_last_samp", io_desc->repeat_last_samp);
+	printf("| %-22s | %-6d |\n", "nsamp", io_desc->nsamp);
+	printf("| %-22s | %-6d |\n", "x_io", io_desc->x_io);
+	printf("| %-22s | 0x%02x   |\n", "on_off", io_desc->on_off);
+	printf("| %-22s | 0x%04x |\n", "split_addr1", io_desc->split_addr1);
+	printf("| %-22s | 0x%04x |\n", "split_addr2", io_desc->split_addr2);
+	printf("| %-22s | 0x%04x |\n", "split_addr3", io_desc->split_addr3);
+	printf("| %-22s | 0x%02x   |\n", "before_f_index", io_desc->before_f_index);
+	printf("| %-22s | 0x%02x   |\n", "after_f_index", io_desc->after_f_index);
+	printf("| %-22s | 0x%04x |\n", "smem_addr1", io_desc->smem_addr1);
+	printf("| %-22s | 0x%04x |\n", "atc_address1", io_desc->atc_address1);
+	printf("| %-22s | 0x%04x |\n", "atc_pointer_saved1", io_desc->atc_pointer_saved1);
+	printf("| %-22s | 0x%02x   |\n", "data_size1", io_desc->data_size1);
+	printf("| %-22s | %-6d |\n", "copy_f_index1", io_desc->copy_f_index1);
+	printf("| %-22s | 0x%04x |\n", "smem_addr2", io_desc->smem_addr2);
+	printf("| %-22s | 0x%04x |\n", "atc_address2", io_desc->atc_address2);
+	printf("| %-22s | 0x%04x |\n", "atc_pointer_saved2", io_desc->atc_pointer_saved2);
+	printf("| %-22s | 0x%02x   |\n", "data_size2", io_desc->data_size2);
+	printf("| %-22s | %-6d |\n", "copy_f_index2", io_desc->copy_f_index2);
+	printf("|---------------------------------|\n\n");
 }
 
 void interpret_io_desc(struct io_desc *io_desc, int port)
 {
-	printf("*****************************************\n");
-	printf(" Decoded IO Descriptor %s\n", get_port_name(port));
-	printf("*****************************************\n");
-	printf("IO type          : %d (%s)\n", io_desc->io_type_idx, id_to_fct[io_desc->io_type_idx]);
-	printf("Direction        : %s\n", io_desc->direction_rw ? "Write" : "Read");
-	printf("State            : %s\n", io_desc->on_off ? "On" : "Off");
-	printf("MCU IRQ register : %s (0x%04x)\n", get_reg_name(io_desc->hw_ctrl_addr), io_desc->hw_ctrl_addr);
-	printf("MCU IRQ data     : 0x%02x\n", io_desc->atc_irq_data);
-	printf("Number of samples: %d\n", io_desc->nsamp);
-	printf("Format           : %s\n", get_format_name_from_iterfactor(io_desc->samp_size));
-	printf("- Configuration 1 -\n");
-	printf("Index            : %d (%s)\n", io_desc->copy_f_index1, id_to_fct[io_desc->copy_f_index1]);
-	printf("Data size        : 0x%04x\n", io_desc->data_size1);
-	printf("SMEM address     : 0x%04x\n", io_desc->smem_addr1);
-	printf("ATC address      : %s (0x4908%04x)\n", get_dma_req_name(io_desc->atc_address1 / 8), io_desc->atc_address1);
-	printf("ATC pointer saved: 0x%04x\n", io_desc->atc_pointer_saved1);
-	printf("- Configuration 2 -\n");
-	printf("Index            : %d (%s)\n", io_desc->copy_f_index2, id_to_fct[io_desc->copy_f_index2]);
-	printf("Data size        : 0x%04x\n", io_desc->data_size2);
-	printf("SMEM address     : 0x%04x\n", io_desc->smem_addr2);
-	printf("ATC address      : %s (0x4908%04x)\n", get_dma_req_name(io_desc->atc_address2 / 8), io_desc->atc_address2);
-	printf("ATC pointer saved: 0x%04x\n", io_desc->atc_pointer_saved2);
-	if (io_desc->data_size1 != io_desc->data_size2)
-		printf("Data size1 (0x%04x) doesn't match size2 (0x%04x)\n", io_desc->data_size1, io_desc->data_size2);
+	printf("|-------------------------------------------------------------------|\n");
+	printf("| Decoded IO Descriptor %-43s |\n", get_port_name(port));
+	printf("|-------------------------------------------------------------------|\n");
+	printf("| %-22s | %-40d |\n", "IO type", io_desc->io_type_idx);
+	printf("| %-22s | %-40s |\n", "Direction", io_desc->direction_rw ? "Write" : "Read");
+	printf("| %-22s | %-40s |\n", "State", io_desc->on_off ? "On" : "Off");
+	printf("| %-22s | %-40s |\n", "MCU IRQ register", get_reg_name(io_desc->hw_ctrl_addr));
+	printf("| %-22s | 0x%02x%-36s |\n", "MCU IRQ data", io_desc->atc_irq_data, "");
+	printf("| %-22s | %-40d |\n", "Number of samples", io_desc->nsamp);
+	printf("| %-22s | %-40s |\n", "Format", get_format_name_from_iterfactor(io_desc->samp_size));
+	printf("| %-22s | %-40s |\n", "Configuration 1", "");
+	printf("| %-22s | %-40s |\n", "Index", id_to_fct[io_desc->copy_f_index1]);
+	printf("| %-22s | %-40d |\n", "Data size", io_desc->data_size1);
+	printf("| %-22s | 0x%04x%-34s |\n", "SMEM address", io_desc->smem_addr1, "");
+	printf("| %-22s | %-27s (0x4908%04x) |\n", "ATC address", get_dma_req_name(io_desc->atc_address1 / 8), io_desc->atc_address1);
+	printf("| %-22s | 0x%04x%-34s |\n", "ATC pointer saved", io_desc->atc_pointer_saved1, "");
+	printf("| %-22s | %-40s |\n", "Configuration 1", "");
+	printf("| %-22s | %-40d |\n", "Index", io_desc->copy_f_index2);
+	printf("| %-22s | %-40d |\n", "Data size", io_desc->data_size2);
+	printf("| %-22s | 0x%04x%-34s |\n", "SMEM address", io_desc->smem_addr2, "");
+	printf("| %-22s | %-27s (0x4908%04x) |\n", "ATC address", get_dma_req_name(io_desc->atc_address2 / 8), io_desc->atc_address2);
+	printf("| %-22s | 0x%04x%-34s |\n", "ATC pointer saved", io_desc->atc_pointer_saved2, "");
+	printf("|-------------------------------------------------------------------|\n\n");
 }
-
-
 
 int abe_print_gain()
 {
@@ -1244,15 +1319,23 @@ int abe_print_gain()
 	uint32_t *p_data = smem;
 	uint32_t target, current;
 
+	printf("|----------------------------------------|\n");
+	printf("|        %-4s        | %-7s | %-7s |\n", "Gain", "Target", "Current");
+	printf("|--------------------|---------|---------|\n");
+
 	for (i = 0; i <36; i++) {
 		target = p_data[OMAP_ABE_S_GTARGET1_ADDR/4+i];
 		current = p_data[OMAP_ABE_S_GCURRENT_ADDR/4+i];
 		if ((target != 0) && (20.0 * log10f(current/262144.0) > -115)) {
 			//printf("Debug %x %x", p_data[OMAP_ABE_S_GTARGET1_ADDR/4+i], p_data[OMAP_ABE_S_GCURRENT_ADDR/4+i]);
-			printf("Gain:%s, Target: %2.2f, ", gain_list[i], 20.0 * log10f(target/262144.0));
-			printf("Current: %2.2f\n", 20.0 * log10f(current/262144.0));
+			printf("| %-18s | %7.2f | %7.2f |\n",
+				gain_list[i],
+				20.0 * log10f(target/262144.0),
+				20.0 * log10f(current/262144.0));
 		}
 	}
+
+	printf("|----------------------------------------|\n\n");
 }
 
 int abe_print_route()
@@ -1263,6 +1346,53 @@ int abe_print_route()
 //	printf("VX Route, %x, %x", dmem[OMAP_ABE_D_AUPLINKROUTING]);
 }
 
+int task_to_id(int task)
+{
+	int id;
+
+	/* ABE_STask size is 16 bytes */
+	if (task)
+		id = (task - OMAP_ABE_D_TASKSLIST_ADDR) / 16;
+	else
+		id = -1;
+
+	return id;
+}
+
+void print_scheduler_table(void)
+{
+	int addr, id, i, j;
+	uint32_t val;
+
+	printf("|-----------------------------------------------------|\n");
+	printf("|                  Scheduling Table                   |\n");
+	printf("|-----------------------------------------------------|\n");
+	printf("| S\\I ");
+	for (j = 0; j < SCHEDULER_IDXS; j++)
+		printf("| %3d ", j + 1);
+	printf("|\n");
+	printf("|-----|-----|-----|-----|-----|-----|-----|-----|-----|\n");
+
+	for (i = 0; i < SCHEDULER_SLOTS; i++) {
+		printf("| %3d ", i + 1);
+		for (j = 0; j < SCHEDULER_IDXS; j++) {
+			addr = OMAP_ABE_D_MULTIFRAME_ADDR + (i * SCHEDULER_IDXS + j) * 2;
+			val = dmem[addr / 4];
+
+			if (addr % 4)
+				id = task_to_id((val >> 16) & 0xFFFF);
+			else
+				id = task_to_id(val & 0xFFFF);
+
+			if (id > 0)
+				printf("| %3d ", id);
+			else
+				printf("|  -  ");
+		}
+		printf("|\n");
+	}
+	printf("|-----------------------------------------------------|\n\n");
+}
 
 int abe_parse_buffer(struct buffer *buf)
 {
@@ -1329,101 +1459,283 @@ int abe_parse_buffer(struct buffer *buf)
 			min = fabsf(data);
 	}
 
-	if (buf->bank == OMAP_ABE_SMEM)
-		printf("Buf: % 20s, Size % 3d, Min: %04.06f, Max: %04.06f, Min: %04.06f, Max: %04.06f\n",
-			buf->name, buf->size/4, minl, maxl, minr, maxr);
-	else if (buf->bank == OMAP_ABE_DMEM)
-		printf("Buf: % 20s, Size % 3d, Min: %04.06f, Max: %04.06f, Min: %04.06f, Max: %04.06f\n",
+	if ((buf->bank == OMAP_ABE_SMEM) || (buf->bank == OMAP_ABE_DMEM))
+		printf("| %-25s | %4d | %15.06f | %15.06f | %15.06f | %15.06f |\n",
 			buf->name, buf->size/4, minl, maxl, minr, maxr);
 	else
-		printf("Buf: % 20s, Size % 3d, Min: %04.06f, Max: %04.06f\n", buf->name, buf->size/4, min, max);
+		printf("| %-25s | %4d | %15.04f | %15.04f | %15s | %15s |\n",
+			buf->name, buf->size/4, min, max, "-", "-");
 
 }
+
+void print_buffers(int buffer_list)
+{
+	int i;
+
+	printf("|------------------------------------------------------");
+	printf("----------------------------------------------------|\n");
+	printf("| %25s | %4s | %33s | %33s |\n",
+		"", "",
+		"              Left               ",
+		"              Right              ");
+        printf("| %25s | %4s |"
+		"-----------------------------------|"
+		"-----------------------------------|\n",
+		"          Buffer         ", "Size");
+        printf("| %25s | %4s | %15s | %15s | %15s | %15s |\n",
+		"", "",
+		"     Min     ", "     Max     ",
+		"     Min     ", "     Max     ");
+	printf("|---------------------------|------|-----------------|");
+	printf("-----------------|-----------------|-----------------|\n");
+
+	/* AMIC */
+	if (buffer_list & AMIC_UL_LIST) {
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"Analog Microphone", "", "", "", "", "");
+		for (i = 0; i < ARRAY_SIZE(amic_ul_list); i++)
+			abe_parse_buffer(&amic_ul_list[i]);
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"", "", "", "", "", "");
+	}
+
+	/* VX UL 16 kHz */
+	if (buffer_list & VX_UL_16K_LIST) {
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"Voice Uplink 16kHz", "", "", "", "", "");
+		for (i = 0; i < ARRAY_SIZE(vx_ul_16k_list); i++)
+			abe_parse_buffer(&vx_ul_16k_list[i]);
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"", "", "", "", "", "");
+	}
+
+	/* VX DL 16kHz */
+	if (buffer_list & VX_DL_16K_LIST) {
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"Voice Downlink 16kHz", "", "", "", "", "");
+		for (i = 0; i < ARRAY_SIZE(vx_dl_16k_list); i++)
+			abe_parse_buffer(&vx_dl_16k_list[i]);
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"", "", "", "", "", "");
+	}
+
+	/* VX UL 8kHz */
+	if (buffer_list & VX_UL_8K_LIST) {
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"Voice Uplink 8kHz", "", "", "", "", "");
+		for (i = 0; i < ARRAY_SIZE(vx_ul_8k_list); i++)
+			abe_parse_buffer(&vx_ul_8k_list[i]);
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"", "", "", "", "", "");
+	}
+
+	/* VX DL 8kHz */
+	if (buffer_list & VX_DL_8K_LIST) {
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"Voice Downlink 8kHz", "", "", "", "", "");
+		for (i = 0; i < ARRAY_SIZE(vx_dl_8k_list); i++)
+			abe_parse_buffer(&vx_dl_8k_list[i]);
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"", "", "", "", "", "");
+	}
+
+	/* EAR */
+	if (buffer_list & EARP_LIST) {
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"Earpiece", "", "", "", "", "");
+		for (i = 0; i < ARRAY_SIZE(earp_list); i++)
+			abe_parse_buffer(&earp_list[i]);
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"", "", "", "", "", "");
+	}
+
+	/* IHF */
+	if (buffer_list & IHF_LIST) {
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"Hands Free", "", "", "", "", "");
+		for (i = 0; i < ARRAY_SIZE(ihf_list); i++)
+			abe_parse_buffer(&ihf_list[i]);
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"", "", "", "", "", "");
+	}
+
+	/* MM DL */
+	if (buffer_list & MM_DL_LIST) {
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"Multimedia Downlink", "", "", "", "", "");
+		for (i = 0; i < ARRAY_SIZE(mm_dl_list); i++)
+			abe_parse_buffer(&mm_dl_list[i]);
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"", "", "", "", "", "");
+	}
+
+	/* BT UL 8kHz */
+	if (buffer_list & BT_UL_8K_LIST) {
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"Bluetooth Uplink 8kHz", "", "", "", "", "");
+		for (i = 0; i < ARRAY_SIZE(bt_ul_8k_list); i++)
+			abe_parse_buffer(&bt_ul_8k_list[i]);
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"", "", "", "", "", "");
+	}
+
+	/* BT DL 8kHz */
+	if (buffer_list & BT_DL_8K_LIST) {
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"Bluetooth Downlink 8kHz", "", "", "", "", "");
+		for (i = 0; i < ARRAY_SIZE(bt_dl_8k_list); i++)
+			abe_parse_buffer(&bt_dl_8k_list[i]);
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"", "", "", "", "", "");
+	}
+
+	/* BT UL 16kHz */
+	if (buffer_list & BT_UL_16K_LIST) {
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"Bluetooth Uplink 16kHz", "", "", "", "", "");
+		for (i = 0; i < ARRAY_SIZE(bt_ul_16k_list); i++)
+			abe_parse_buffer(&bt_ul_16k_list[i]);
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"", "", "", "", "", "");
+	}
+
+	/* BT DL 16kHz */
+	if (buffer_list & BT_DL_16K_LIST) {
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"Bluetooth Downlink 16kHz", "", "", "", "", "");
+		for (i = 0; i < ARRAY_SIZE(bt_dl_16k_list); i++)
+			abe_parse_buffer(&bt_dl_16k_list[i]);
+		printf("| %-25s | %4s | %15s | %15s | %15s | %15s |\n",
+			"", "", "", "", "", "");
+	}
+
+	printf("|------------------------------------------------------");
+	printf("----------------------------------------------------|\n\n");
+}
+
+void help(void)
+{
+	printf("Usage: abe_check [OPTION]\n");
+	printf("-v --version   ABE version\n");
+	printf("-o --opp       AESS OPP\n");
+	printf("-b --buffers   AESS internal buffers stats\n");
+	printf("-g --gains     gains which are not muted\n");
+	printf("-r --routes    active routes\n");
+	printf("-a --atc       active ATC descriptors\n");
+	printf("-i --iodesc    IO descriptors\n");
+	printf("-p --ppdesc    Ping-Pong descriptor\n");
+	printf("-h --help      help\n");
+}
+
+static const struct option long_options[] = {
+	{"version", no_argument, 0, 'v'},
+	{"opp", no_argument, 0, 'o'},
+	{"sched", no_argument, 0, 's'},
+	{"buffers", no_argument, 0, 'b'},
+	{"gains", no_argument, 0, 'g'},
+	{"routes", no_argument, 0, 'r'},
+	{"atc", no_argument, 0, 'a'},
+	{"iodesc", no_argument, 0, 'i'},
+	{"ppdesc", no_argument, 0, 'p'},
+	{"help", no_argument, 0, 'h'},
+	{0, 0, 0, 0},
+};
+
+static const char short_options[] = "vosbgraiph";
 
 int main(int argc, char *argv[])
 {
 	struct atc_desc atc_desc;
         struct io_desc io_desc;
 	struct ping_pong_desc pp_desc;
-	int i, j, err = 0;
+	int i, j;
+	char c;
+	int opt = 0;
 
-	if (argc != 1) {
-		printf("%s: outfile\n", argv[0]);
-		return 0;
+	while ((c = getopt_long(argc, argv, short_options, long_options, 0)) != -1) {
+		switch (c) {
+		case 'v':
+			opt |= OPT_VERSION;
+			break;
+		case 'o':
+			opt |= OPT_OPP;
+			break;
+		case 's':
+			opt |= OPT_SCHED;
+			break;
+		case 'b':
+			opt |= OPT_BUFFERS;
+			break;
+		case 'g':
+			opt |= OPT_GAINS;
+			break;
+		case 'r':
+			opt |= OPT_ROUTES;
+			break;
+		case 'a':
+			opt |= OPT_ATC;
+			break;
+		case 'i':
+			opt |= OPT_IODESC;
+			break;
+		case 'p':
+			opt |= OPT_PPDESC;
+			break;
+		case 'h':
+			help();
+			return 0;
+		default:
+			help();
+			return 1;
+		}
 	}
 
-	printf("ABE release: %x\n", dmem[OMAP_ABE_D_VERSION_ADDR/4]);
-	printf("   OPP: %x\n", dmem[OMAP_ABE_D_MAXTASKBYTESINSLOT_ADDR/4]);
+	/* dump all options if no arg */
+	if (argc == 1)
+		opt = OPT_ALL;
 
-	/* AMIC */
-	for (i = 0; i < ARRAY_SIZE(amic_ul_list); i++)
-		abe_parse_buffer(&amic_ul_list[i]);
-	printf("\n");
+	if (opt & OPT_VERSION)
+		print_release();
 
-#if 0
-	/* Vx UL 16 kHz */
-	for (i = 0; i < ARRAY_SIZE(vx_ul_16k_list); i++)
-		abe_parse_buffer(&vx_ul_16k_list[i]);
-	printf("\n");
+	if (opt & OPT_OPP)
+		print_opp();
 
-	/* Vx DL 16 kHz */
-	for (i = 0; i < ARRAY_SIZE(vx_dl_16k_list); i++)
-		abe_parse_buffer(&vx_dl_16k_list[i]);
-	printf("\n");
-#else
-	/* Vx UL 8 kHz */
-	for (i = 0; i < ARRAY_SIZE(vx_ul_8k_list); i++)
-		abe_parse_buffer(&vx_ul_8k_list[i]);
-	printf("\n");
+	if (opt & OPT_SCHED)
+		print_scheduler_table();
 
-	/* Vx DL 8 kHz */
-	for (i = 0; i < ARRAY_SIZE(vx_dl_8k_list); i++)
-		abe_parse_buffer(&vx_dl_8k_list[i]);
-	printf("\n");
-#endif
-	/* EAR */
-	for (i = 0; i < ARRAY_SIZE(earp_list); i++)
-		abe_parse_buffer(&earp_list[i]);
-	printf("\n");
+	if (opt & OPT_BUFFERS)
+		print_buffers(BUFF_LIST_ALL);
 
-	/* IHF */
-	for (i = 0; i < ARRAY_SIZE(ihf_list); i++)
-		abe_parse_buffer(&ihf_list[i]);
-	printf("\n");
+	if (opt & OPT_GAINS)
+		abe_print_gain();
 
-	/* BT UL 8k */
-	for (i = 0; i < ARRAY_SIZE(bt_ul_8k_list); i++)
-		abe_parse_buffer(&bt_ul_8k_list[i]);
-	printf("\n");
-
-	/* BT DL 8k */
-	for (i = 0; i < ARRAY_SIZE(bt_dl_8k_list); i++)
-		abe_parse_buffer(&bt_dl_8k_list[i]);
-	printf("\n");
-
-	abe_print_gain();
-	abe_print_route();
-
+	if (opt & OPT_ROUTES)
+		abe_print_route();
 
 	for (i = 0; i < NUM_SUPPORTED_DMA_REQS; i++) {
 		parse_atc_desc(&atc_desc, i);
 		if (atc_desc.desen) {
-			print_atc_desc(&atc_desc, i);
-			interpret_atc_desc(&atc_desc, i);
+			if (opt & OPT_ATC) {
+				print_atc_desc(&atc_desc, i);
+				interpret_atc_desc(&atc_desc, i);
+			}
 			for (j = 0; j < OMAP_ABE_ATC_TO_PORT_SIZE; j++) {
 				if (atc_to_io[j][0] == i) {
-					parse_io_desc(&io_desc, atc_to_io[j][1]);
-					print_io_desc(&io_desc, atc_to_io[j][1]);
-					interpret_io_desc(&io_desc, atc_to_io[j][1]);
+					if (opt & OPT_IODESC) {
+						parse_io_desc(&io_desc, atc_to_io[j][1]);
+						print_io_desc(&io_desc, atc_to_io[j][1]);
+						interpret_io_desc(&io_desc, atc_to_io[j][1]);
+					}
 				}
 			}
 		}
 	}
 
-	parse_ping_pong_desc(&pp_desc);
-	print_ping_pong_desc(&pp_desc);
-	interpret_ping_pong_desc(&pp_desc);
+	if (opt & OPT_PPDESC) {
+		parse_ping_pong_desc(&pp_desc);
+		print_ping_pong_desc(&pp_desc);
+		interpret_ping_pong_desc(&pp_desc);
+	}
 
-
-	return err;
+	return 0;
 }
