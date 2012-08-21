@@ -45,22 +45,18 @@
 
 #include "abegen.h"
 
-#define NAME_SIZE	256
-
 static int abe_dlopen_fw(const char *fw_version)
 {
 	void *plugin_handle;
-	char name[NAME_SIZE];
 	struct abe_firmware *fw;
 	int ret, fd;
 
 	fprintf(stdout, "FW: loading %s\n", fw_version);
-	snprintf(name, NAME_SIZE, "fw%s", fw_version);
 
 	/* load the plugin */
-	plugin_handle = dlopen(name, RTLD_LAZY);
+	plugin_handle = dlopen(fw_version, RTLD_LAZY);
 	if (!plugin_handle) {
-		fprintf(stderr, "error: failed to open %s: %s\n", name,
+		fprintf(stderr, "error: failed to open %s: %s\n", fw_version,
 			dlerror());
 		return -EINVAL;
 	}
@@ -95,17 +91,15 @@ out:
 static int abe_dlopen_tasks(const char *fw_version)
 {
 	void *plugin_handle;
-	char name[NAME_SIZE];
 	struct abe_firmware *fw;
 	int ret, fd;
 
 	fprintf(stdout, "Tasks: loading %s\n", fw_version);
-	snprintf(name, NAME_SIZE, "fw%s", fw_version);
 
 	/* load the plugin */
-	plugin_handle = dlopen(name, RTLD_LAZY);
+	plugin_handle = dlopen(fw_version, RTLD_LAZY);
 	if (!plugin_handle) {
-		fprintf(stderr, "error: failed to open %s: %s\n", name,
+		fprintf(stderr, "error: failed to open %s: %s\n", fw_version,
 			dlerror());
 		return -EINVAL;
 	}
@@ -141,8 +135,8 @@ static void usage(char *name)
 {
 	fprintf(stdout, "usage: %s [options]\n\n", name);
 
-	fprintf(stdout, "Create firmware	[-f version]\n");
-	fprintf(stdout, "Create tasks		[-t version]\n");
+	fprintf(stdout, "Create firmware		[-f version]\n");
+	fprintf(stdout, "Create tasks			[-t version]\n");
 	exit(0);
 }
 
