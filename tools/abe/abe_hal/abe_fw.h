@@ -265,8 +265,8 @@ typedef struct
 #define dmem_tones_dl D_TONES_DL_FIFO_ADDR
 #define dmem_tones_dl_size (D_TONES_DL_FIFO_sizeof/4)
 #define smem_tones_dl Tones_labelID
-#define dmem_vib_dl D_VIB_DL_FIFO_ADDR
-#define dmem_vib_dl_size (D_VIB_DL_FIFO_sizeof/4)
+#define dmem_mcasp1 D_McASP1_FIFO_ADDR
+#define dmem_mcasp1_size (D_McASP1_FIFO_sizeof/4)
 #define smem_vib IO_VIBRA_DL_labelID
 #define dmem_mm_ext_out D_MM_EXT_OUT_FIFO_ADDR
 #define dmem_mm_ext_out_size (D_MM_EXT_OUT_FIFO_sizeof/4)

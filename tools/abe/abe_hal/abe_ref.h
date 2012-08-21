@@ -137,6 +137,7 @@ extern u32 abe_desired_ramp_delay_ms[MAX_NBGAIN_CMEM];
 extern u32 pdm_dl1_status;
 extern u32 pdm_dl2_status;
 extern u32 pdm_vib_status;
+extern u32 tdm_current_slot;
 extern const u32 abe_firmware_array[ABE_FIRMWARE_MAX_SIZE];
 extern u32 abe_firmware_version_number;
 extern const u32 abe_atc_srcid[];

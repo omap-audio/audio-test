@@ -621,7 +621,7 @@ abehal_status abe_set_opp_processing(u32 opp)
 			sio_desc.smem_addr1 = BT_DL_8k_opp100_labelID;
 		} else {
 			MultiFrame[TASK_BT_DL_48_8_SLT][TASK_BT_DL_48_8_IDX] =
-				ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8_FIR);
+				ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8);
 			sio_desc.smem_addr1 = BT_DL_8k_labelID;
 		}
 	} else if (abe_port[BT_VX_DL_PORT].format.f == 16000) {			// Fe = 16Khz
@@ -941,6 +941,10 @@ abehal_status abe_disable_data_transfer(u32 id)
 		if (protocol->protocol_switch == PINGPONG_PORT_PROT)
 			abe_disable_pp_io_task(MM_DL_PORT);
 	}
+	/* TDM port: disable the last slot and decrease pointer*/
+	//if (protocol->protocol_switch == TDM_PORT_PROT) {
+	//	tdm_current_slot = tdm_current_slot--;
+	//}
 	/* local host variable status= "port is running" */
 	abe_port[id].status = OMAP_ABE_PORT_ACTIVITY_IDLE;
 	/* disable DMA requests */
@@ -1279,24 +1283,25 @@ EXPORT_SYMBOL(abe_connect_slimbus_port);
  * enables the data echanges between TDM McBSP ATC buffers in
  * DMEM and 1/2 SMEM buffers
  */
-abehal_status abe_connect_tdm_port(u32 id, abe_data_format_t *f, u32 mcbsp_id)
+abehal_status abe_connect_tdm_port(u32 id, abe_data_format_t *f, u32 nbchanel, u32 mcbsp_id)
 {
 	u32 UC_NULL[] = { 0 };
 	u32 OPP;
 	abe_hw_config_init_t CONFIG;
 	u32 iter;
+	
+	//  If port is already open and running exit function
+	if (abe_port[id].status == OMAP_ABE_PORT_ACTIVITY_RUNNING)
+		return -1;			
 	_log(id_connect_tdm_port, id, f->samp_format, mcbsp_id);
 	abe_port[id] = ((abe_port_t *) abe_port_init)[id];
 	(abe_port[id]).format = (*f);
-	(abe_port[id]).protocol.protocol_switch = TDM_SERIAL_PORT_PROT;
+	(abe_port[id]).protocol.protocol_switch = TDM_PORT_PROT;
 	/* McBSP peripheral connected to ATC */
 	(abe_port[id]).protocol.p.prot_serial.desc_addr = mcbsp_id*ATC_SIZE;
 	/* check the iteration of ATC */
 	abe_read_hardware_configuration(UC_NULL, &OPP, &CONFIG);
-	if (abe_port[id].protocol.direction == ABE_ATC_DIRECTION_IN)
-		iter = CONFIG.MCBSP_THRSH1_REG_REG__RTHRESHOLD;
-	else
-		iter = CONFIG.MCBSP_THRSH2_REG_REG__XTHRESHOLD;
+	iter = nbchanel;				// Nb channel
 	/* McBSP iter should be 1 */
 	(abe_port[id]).protocol.p.prot_serial.iter = iter;
 	abe_port[id].status = OMAP_ABE_PORT_ACTIVITY_IDLE;
@@ -1307,6 +1312,44 @@ abehal_status abe_connect_tdm_port(u32 id, abe_data_format_t *f, u32 mcbsp_id)
 	return 0;
 }
 EXPORT_SYMBOL(abe_connect_tdm_port);
+/**
+ * abe_set_tdm_parameters
+ * @nbchanel: number of channel (2,4,6,8)
+ * @buff1_labelID..buff4_labelID: labelID of buffer to read
+ * @shift_channel1..shift_channel4: shift value for each channel (max -2)
+ *
+ */
+abehal_status abe_set_tdm_parameters(u32 id, u32 nbchanel, u32 buff1_labelID, u32 buff2_labelID,u32 buff3_labelID,u32 buff4_labelID,
+									u32 shift_channel1,u32 shift_channel2,u32 shift_channel3,u32 shift_channel4)
+{
+	tdm_configutation tdm_conf;					// config for tdm port
+	u32 d_tdm_dl_adress;						// contains DMEM adress for config writing
+	/* Set parameter for TDM DL port depending of port */
+	tdm_conf.config[0] = nbchanel;				// nb of channels
+	tdm_conf.config[1] = buff1_labelID;			// For AM0 input
+	tdm_conf.config[2] = buff2_labelID;
+	tdm_conf.config[3] = buff3_labelID;
+	tdm_conf.config[4] = buff4_labelID;
+	tdm_conf.config[5] = shift_channel1;		// shift value for chanel 0-1
+	tdm_conf.config[6] = shift_channel2;		// shift value for chanel 2-3
+	tdm_conf.config[7] = shift_channel3;		// shift value for chanel 4-5
+	tdm_conf.config[8] = shift_channel4;		// shift value for chanel 6-7
+	/* Do not modify */
+	tdm_conf.config[9] = 0;							// Number of slot to be plugged
+	tdm_conf.config[9] = tdm_conf.config[9]++;
+	tdm_current_slot = tdm_conf.config[9];
+	/* Set the good DMEM adress for writing tdm config*/
+	switch (id){
+		case MM_EXT_OUT_PORT: d_tdm_dl_adress = D_TDM_DL_port_1_ADDR; break;
+		case TDM_DL_PORT:	  d_tdm_dl_adress = D_TDM_DL_port_2_ADDR; break;
+		default:			  d_tdm_dl_adress = D_TDM_DL_port_1_ADDR; break;
+	}	
+	/* Write config TDM to ABE memory*/
+	abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM,
+		       d_tdm_dl_adress, (u32 *) (tdm_conf.config), sizeof((tdm_conf.config)));
+	return 0;
+}
+EXPORT_SYMBOL(abe_set_tdm_parameters);
 /**
  * abe_read_port_address
  * @dma: output pointer to the DMA iteration and data destination pointer
@@ -1431,6 +1474,25 @@ abehal_status abe_write_equalizer(u32 id, abe_equ_t *param)
 		eq_mem_len = S_DMIC0_96_48_data_sizeof;
 		/* three DMIC are clear at the same time DMIC0 DMIC1 DMIC2 */
 		eq_mem_len *= 3;
+		break;
+	case EQDMIC1:
+		eq_offset = C_DMIC1_EQ_Coefs_ADDR;
+		eq_mem = S_DMIC1_48_EQ_data_ADDR;
+		eq_mem_len = C_DMIC1_EQ_Coefs_sizeof;
+		/* three DMIC are clear at the same time DMIC0 DMIC1 DMIC2 */
+		eq_mem_len *= 3;
+		break;
+	case EQ1BQ:
+		eq_offset = C_DL1_BQ_1_Coefs_ADDR;
+		eq_mem = S_DL1_M_EQ_BQ_1_data_ADDR;
+		/* There is currently 5 biquad sections and filter
+		   memories are following each other in SMEM, so the
+		   following line would do the job:
+		   eq_mem_len = 5*S_DL1_M_EQ_BQ_1_data_sizeof;
+		   However, the equ_length should always match the
+		   the both filter memory and coef lenght.
+		*/
+		eq_mem_len = param->equ_length;
 		break;
 	}
 	length = param->equ_length;
@@ -2024,10 +2086,10 @@ abehal_status abe_enable_test_pattern(u32 smem_id, u32 on_off)
 		task_patch = C_ABE_FW_TASK_MM_SPLIT;
 		idx_patch = 1;
 		break;
-	case DBG_PATCH_VIBRA:
+	case DBG_PATCH_McASP1:
 		dbg_on = DBG_48K_PATTERN_labelID;
-		dbg_off = VIBRA_labelID;
-		task_patch = C_ABE_FW_TASK_VIBRA_SPLIT;
+		dbg_off = McASP1_labelID;
+		task_patch = C_ABE_FW_TASK_IO_McASP1;
 		idx_patch = 1;
 		break;
 	case DBG_PATCH_MM_EXT_IN:

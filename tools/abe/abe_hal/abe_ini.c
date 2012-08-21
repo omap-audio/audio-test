@@ -129,6 +129,9 @@ void abe_build_scheduler_table()
 	/*////////                  Slot 1 /24                       //////////*/
 	/*/////////////////////////////////////////////////////////////////////*/
 	/*------------------- OPP 25 ---------------------*/
+#define TASK_IO_McASP1_SLT 1
+#define TASK_IO_McASP1_IDX 0
+	MultiFrame[1][0] = 0;
 	/* MultiFrame[1][0] = 0; */
 	/* MultiFrame[1][1] = 0; */
 	/*------------------- OPP 50 ---------------------*/
@@ -142,9 +145,6 @@ void abe_build_scheduler_table()
 #define TASK_DL2Mixer_SLT 1
 #define TASK_DL2Mixer_IDX 6
 	MultiFrame[1][6] = ABE_TASK_ID(C_ABE_FW_TASK_DL2Mixer);
-#define TASK_IO_VIB_DL_SLT 1
-#define TASK_IO_VIB_DL_IDX 7
-	MultiFrame[1][7] = 0;
 	/*/////////////////////////////////////////////////////////////////////*/
 	/*////////                  Slot 2 /24                       //////////*/
 	/*/////////////////////////////////////////////////////////////////////*/
@@ -167,8 +167,11 @@ void abe_build_scheduler_table()
 	/*////////                  Slot 3 /24                       //////////*/
 	/*/////////////////////////////////////////////////////////////////////*/
 	/*------------------- OPP 25 ---------------------*/
+#define TASK_IO_TDM_DL_HALF1_SLT 3
+#define TASK_IO_TDM_DL_HALF1_IDX 1
 	MultiFrame[3][0] = ABE_TASK_ID(C_ABE_FW_TASK_DL1_GAIN);
-	/* MultiFrame[3][1] = 0; */
+	MultiFrame[3][1] = 0;
+	
 	/*------------------- OPP 50 ---------------------*/
 	/* MultiFrame[3][2] = 0; */
 	/* MultiFrame[3][3] = 0; */
@@ -189,8 +192,8 @@ void abe_build_scheduler_table()
 	/* MultiFrame[4][4] = 0; */
 	/* MultiFrame[4][5] = 0; */
 	/*------------------- OPP 100 --------------------*/
-	MultiFrame[4][6] = ABE_TASK_ID(C_ABE_FW_TASK_VIBRA1);
-	MultiFrame[4][7] = ABE_TASK_ID(C_ABE_FW_TASK_VIBRA2);
+	MultiFrame[4][6] = 0;
+	MultiFrame[4][7] = 0;
 	/*/////////////////////////////////////////////////////////////////////*/
 	/*////////                  Slot 5 /24                       //////////*/
 	/*/////////////////////////////////////////////////////////////////////*/
@@ -208,7 +211,7 @@ void abe_build_scheduler_table()
 	/* MultiFrame[5][5] = 0; */
 	/*------------------- OPP 100 --------------------*/
 	/* MultiFrame[5][6] = 0; */
-	MultiFrame[5][7] = ABE_TASK_ID(C_ABE_FW_TASK_VIBRA_SPLIT);
+	MultiFrame[5][7] = 0;
 	/*/////////////////////////////////////////////////////////////////////*/
 	/*////////                  Slot 6 /24                       //////////*/
 	/*/////////////////////////////////////////////////////////////////////*/
@@ -296,7 +299,7 @@ void abe_build_scheduler_table()
 	/* MultiFrame[11][5] = 0; */
 	/*------------------- OPP 100 --------------------*/
 	/* MultiFrame[11][6] = 0; */
-	MultiFrame[11][7] = ABE_TASK_ID(C_ABE_FW_TASK_VIBRA_PACK);
+	MultiFrame[11][7] = 0;;
 	/*/////////////////////////////////////////////////////////////////////*/
 	/*////////                  Slot 12 /24                       /////////*/
 	/*/////////////////////////////////////////////////////////////////////*/
@@ -342,7 +345,7 @@ void abe_build_scheduler_table()
 	MultiFrame[14][3] = 0;
 #define TASK_BT_DL_48_8_SLT 14
 #define TASK_BT_DL_48_8_IDX 4
-	MultiFrame[14][4] = 0;//ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8_FIR);
+	MultiFrame[14][4] = ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8);
 	/* MultiFrame[14][5] = 0; */
 	/*------------------- OPP 100 --------------------*/
 	/* MultiFrame[14][6] = 0; */
@@ -353,6 +356,8 @@ void abe_build_scheduler_table()
 	/*------------------- OPP 25 ---------------------*/
 #define TASK_IO_MM_EXT_OUT_SLT 15
 #define TASK_IO_MM_EXT_OUT_IDX 0
+#define TASK_IO_TDM_DL_HALF2_SLT 15
+#define TASK_IO_TDM_DL_HALF2_IDX 1
 	MultiFrame[15][0] = 0;
 	/* MultiFrame[15][1] = 0; */
 	/*------------------- OPP 50 ---------------------*/
@@ -563,6 +568,9 @@ void abe_init_atc(u32 id)
 	/* VXUL_16kstereo = 4 */
 	/* MM_UL2_Stereo = 4 */
 	/* PDMDL = 12 */
+	/* Special case for McASP1 port*/
+	if (id == McASP1_PORT)
+		(abe_port[id]).protocol.p.prot_serial.iter=(abe_port[id]).protocol.p.prot_serial.iter/2;	// Read one channel at the same time
 	/* IN from AESS point of view */
 	if (abe_port[id].protocol.direction == ABE_ATC_DIRECTION_IN)
 		if (iter + 2 * datasize > 126)
@@ -667,6 +675,22 @@ void abe_init_atc(u32 id)
 		}
 		abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM,
 			(abe_port[id]).protocol.p.prot_dmareq.desc_addr,
+			(u32 *) &atc_desc, sizeof(atc_desc));
+		break;
+	case TDM_PORT_PROT:
+		atc_desc.cbdir = (abe_port[id]).protocol.direction;
+		atc_desc.cbsize = (abe_port[id]).protocol.p.prot_serial.buf_size;
+		atc_desc.badd =
+			((abe_port[id]).protocol.p.prot_serial.buf_addr) >> 4;
+		atc_desc.iter = (abe_port[id]).protocol.p.prot_serial.iter;
+		atc_desc.srcid =
+			abe_atc_srcid[(abe_port[id]).protocol.p.prot_serial.
+			desc_addr >> 3];
+		atc_desc.destid =
+			abe_atc_dstid[(abe_port[id]).protocol.p.prot_serial.
+			desc_addr >> 3];
+		abe_block_copy(COPY_FROM_HOST_TO_ABE, ABE_DMEM,
+			(abe_port[id]).protocol.p.prot_serial.desc_addr,
 			(u32 *) &atc_desc, sizeof(atc_desc));
 		break;
 	}
@@ -915,6 +939,9 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 		io_flag = 0xFF;
 		datasize2 = datasize = abe_dma_port_iter_factor(format);
 		x_io = (u8) abe_dma_port_iteration(format);
+		/* Special use case for TDM port written on 2 slots*/
+		if (id == TDM_DL_PORT)
+			x_io = x_io/2;
 		nsamp = (x_io / datasize);
 		atc_ptr_saved2 = atc_ptr_saved = DMIC_ATC_PTR_labelID + id;
 		smem1 = abe_port[id].smem_buffer1;
@@ -972,6 +999,18 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 			atc_desc_address1 =
 				abe_port[id].protocol.p.prot_dmareq.desc_addr;
 			io_sub_id = IO_IP_CFPID;
+			break;
+		case TDM_PORT_PROT:	/* TDM multichannel */
+			/* TDM port is written in two steps */
+			atc_desc_address1 =
+				(s16) abe_port[id].protocol.p.prot_serial.
+				desc_addr;
+			io_sub_id = IO_IP_CFPID;
+			switch (id){
+			case MM_EXT_OUT_PORT: smem1 = TDM_port_1_labelID; break;
+			case TDM_DL_PORT:	  smem1 = TDM_port_2_labelID; break;
+			default:			  smem1 = TDM_port_1_labelID; break;
+			}	
 			break;
 		}
 		/* special situation of the PING_PONG protocol which
@@ -1083,7 +1122,6 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 				MultiFrame[TASK_VX_UL_SLT][TASK_VX_UL_IDX] =
 					ABE_TASK_ID(C_ABE_FW_TASK_VX_UL_48_8);
 				smem1 = Voice_8k_UL_labelID;
-				
 				/* ASRC set only for McBSP */
 				if ((prot->protocol_switch==SERIAL_PORT_PROT)) {
 					if ((abe_port[VX_DL_PORT].status ==
@@ -1161,7 +1199,7 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 				} else {
 					MultiFrame[TASK_BT_DL_48_8_SLT]
 					[TASK_BT_DL_48_8_IDX] =
-						ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8_FIR);
+						ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8);
 					smem1 = BT_DL_8k_labelID;
 				}
 				if ((abe_port[BT_VX_DL_PORT].status ==
@@ -1312,9 +1350,13 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 				/* at OPP 50 without ASRC */
 				smem1 = smem_mm_ext_in_opp50;
 		}
-		if (MM_EXT_OUT_PORT == id) {
+		if (MM_EXT_OUT_PORT == id && (prot->protocol_switch==SERIAL_PORT_PROT)) {
 			MultiFrame[TASK_IO_MM_EXT_OUT_SLT][TASK_IO_MM_EXT_OUT_IDX] =
 				ABE_TASK_ID(C_ABE_FW_TASK_IO_MM_EXT_OUT);
+		}
+		if (MM_EXT_OUT_PORT == id && (prot->protocol_switch==TDM_PORT_PROT)) {
+			MultiFrame[TASK_IO_MM_EXT_OUT_SLT][TASK_IO_MM_EXT_OUT_IDX] =
+				ABE_TASK_ID(C_ABE_FW_TASK_IO_MM_EXT_OUT_TDM);
 		}
 		if (DMIC_PORT == id) {
 			MultiFrame[TASK_IO_DMIC_HALF1_SLT][TASK_IO_DMIC_HALF1_IDX] =
@@ -1322,9 +1364,10 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 			MultiFrame[TASK_IO_DMIC_HALF2_SLT][TASK_IO_DMIC_HALF2_IDX] =
 				ABE_TASK_ID(C_ABE_FW_TASK_IO_DMIC);
 		}
-		if (VIB_DL_PORT == id) {	
-			MultiFrame[TASK_IO_VIB_DL_SLT][TASK_IO_VIB_DL_IDX] =
-				ABE_TASK_ID(C_ABE_FW_TASK_IO_VIB_DL);
+		if (McASP1_PORT == id) {	
+			MultiFrame[TASK_IO_McASP1_SLT][TASK_IO_McASP1_IDX] =
+				ABE_TASK_ID(C_ABE_FW_TASK_IO_McASP1);
+			smem1 = DL1_GAIN_out_labelID;		/* Buffer in SMEM at 48KHz*/
 		}
 		if (PDM_UL_PORT == id) {
 			MultiFrame[TASK_IO_PDM_UL_SLT][TASK_IO_PDM_UL_IDX] =
@@ -1341,6 +1384,12 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 		else
 			/* offset of the write pointer in the ATC descriptor */
 			direction = 3;
+		if (id == TDM_DL_PORT) {
+			MultiFrame[TASK_IO_TDM_DL_HALF1_SLT][TASK_IO_TDM_DL_HALF1_IDX] =
+				ABE_TASK_ID(C_ABE_FW_TASK_IO_TDM_OUT);
+			MultiFrame[TASK_IO_TDM_DL_HALF2_SLT][TASK_IO_TDM_DL_HALF2_IDX] =
+				ABE_TASK_ID(C_ABE_FW_TASK_IO_TDM_OUT);
+		}
 		sio_desc.drift_ASRC = 0;
 		sio_desc.drift_io = 0;
 		sio_desc.io_type_idx = (u8) io_sub_id;
@@ -1545,6 +1594,8 @@ void abe_clean_temporary_buffers(u32 id)
 			S_DMIC1_96_48_data_sizeof << 3);
 		abe_reset_mem(ABE_SMEM, S_DMIC2_96_48_data_ADDR << 3,
 			S_DMIC2_96_48_data_sizeof << 3);
+		abe_reset_mem(ABE_SMEM, S_DMIC1_48_EQ_data_ADDR << 3,
+			S_DMIC1_48_EQ_data_sizeof << 3);
 		/* reset working values of the gain, target gain is preserved */
 		abe_reset_gain_mixer(GAINS_DMIC1, GAIN_LEFT_OFFSET);
 		abe_reset_gain_mixer(GAINS_DMIC1, GAIN_RIGHT_OFFSET);
@@ -1632,10 +1683,10 @@ void abe_clean_temporary_buffers(u32 id)
 		abe_reset_gain_mixer(MIXDL1, MIX_DL1_INPUT_TONES);
 		abe_reset_gain_mixer(MIXDL2, MIX_DL2_INPUT_TONES);
 		break;
-	case VIB_DL_PORT:
-		abe_reset_mem(ABE_DMEM, D_VIB_DL_FIFO_ADDR,
-			D_VIB_DL_FIFO_sizeof);
-		abe_reset_mem(ABE_SMEM, S_VIBRA_ADDR << 3, S_VIBRA_sizeof << 3);
+	case McASP1_PORT:
+		abe_reset_mem(ABE_DMEM, D_McASP1_FIFO_ADDR,
+			D_McASP1_FIFO_sizeof);
+		abe_reset_mem(ABE_SMEM, S_McASP1_ADDR << 3, S_McASP1_sizeof << 3);
 		break;
 	case BT_VX_DL_PORT:
 		abe_reset_mem(ABE_DMEM, D_BT_DL_FIFO_ADDR, D_BT_DL_FIFO_sizeof);

@@ -76,26 +76,24 @@
 #define C_ABE_FW_FUNCTION_IO_generic                        13
 #define C_ABE_FW_FUNCTION_irq_fifo_debug                    14
 #define C_ABE_FW_FUNCTION_synchronize_pointers              15
-#define C_ABE_FW_FUNCTION_VIBRA2                            16
-#define C_ABE_FW_FUNCTION_VIBRA1                            17
-#define C_ABE_FW_FUNCTION_IIR_SRC_MIC                       18
-#define C_ABE_FW_FUNCTION_wrappers                          19
-#define C_ABE_FW_FUNCTION_ASRC_DL_wrapper                   20
-#define C_ABE_FW_FUNCTION_ASRC_UL_wrapper                   21
-#define C_ABE_FW_FUNCTION_mem_init                          22
-#define C_ABE_FW_FUNCTION_debug_vx_asrc                     23
-#define C_ABE_FW_FUNCTION_IIR_SRC2                          24
-#define C_ABE_FW_FUNCTION_ASRC_DL_wrapper_sibling           25
-#define C_ABE_FW_FUNCTION_ASRC_UL_wrapper_sibling           26
-#define C_ABE_FW_FUNCTION_FIR6                              27
-#define C_ABE_FW_FUNCTION_SRC44P1                           28
-#define C_ABE_FW_FUNCTION_SRC44P1_1211                      29
-#define C_ABE_FW_FUNCTION_SRC44P1_PP                        30
-#define C_ABE_FW_FUNCTION_SRC44P1_1211_PP                   31
-#define C_ABE_FW_FUNCTION_CHECK_IIR_LEFT                    32
-#define C_ABE_FW_FUNCTION_CHECK_IIR_RIGHT                   33
-#define C_ABE_FW_FUNCTION_FIR12_2                           34
-#define C_ABE_FW_FUNCTION_IIR_SRC_MIC_NO_PRESCALING         35
+#define C_ABE_FW_FUNCTION_IIR_SRC_MIC                       16
+#define C_ABE_FW_FUNCTION_wrappers                          17
+#define C_ABE_FW_FUNCTION_ASRC_DL_wrapper                   18
+#define C_ABE_FW_FUNCTION_ASRC_UL_wrapper                   19
+#define C_ABE_FW_FUNCTION_mem_init                          20
+#define C_ABE_FW_FUNCTION_debug_vx_asrc                     21
+#define C_ABE_FW_FUNCTION_IIR_SRC2                          22
+#define C_ABE_FW_FUNCTION_ASRC_DL_wrapper_sibling           23
+#define C_ABE_FW_FUNCTION_ASRC_UL_wrapper_sibling           24
+#define C_ABE_FW_FUNCTION_FIR6                              25
+#define C_ABE_FW_FUNCTION_SRC44P1                           26
+#define C_ABE_FW_FUNCTION_SRC44P1_1211                      27
+#define C_ABE_FW_FUNCTION_SRC44P1_PP                        28
+#define C_ABE_FW_FUNCTION_SRC44P1_1211_PP                   29
+#define C_ABE_FW_FUNCTION_CHECK_IIR_LEFT                    30
+#define C_ABE_FW_FUNCTION_CHECK_IIR_RIGHT                   31
+#define C_ABE_FW_FUNCTION_FIR12_2                           32
+#define C_ABE_FW_FUNCTION_IIR_SRC_MIC_NO_PRESCALING         33
 /*
  *    COPY function ID definitions
  */
@@ -125,4 +123,5 @@
 #define S2D_MONO_16_16_CFPID                                23
 #define D2S_MONO_16_16_CFPID                                24
 #define COPY_DMIC_NO_PRESCALE_CFPID                         25
+#define COPY_TDM_DL_CFPID                                   26
 #endif /* _ABE_FUNCTIONSID_H_ */

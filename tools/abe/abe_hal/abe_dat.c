@@ -89,6 +89,7 @@ u32 abe_desired_ramp_delay_ms[MAX_NBGAIN_CMEM];
 u32 pdm_dl1_status;
 u32 pdm_dl2_status;
 u32 pdm_vib_status;
+u32 tdm_current_slot;				// Current slot being used for TDM DL port
 /*
  * HAL/FW ports status / format / sampling / protocol(call_back) / features
  *	/ gain / name
@@ -207,19 +208,18 @@ const abe_port_t abe_port_init[LAST_PORT_ID] = {
 			 },
 			{CIRCULAR_BUFFER_PERIPHERAL_R__5, 24},
 			{0}, "TONES_DL"},
-	/* VIB_DL */ {
-		      OMAP_ABE_PORT_ACTIVITY_IDLE, {24000, STEREO_MSB},
-		      NODRIFT, NOCALLBACK, smem_vib, 1,
+	/* McASP1 */ {
+		      OMAP_ABE_PORT_ACTIVITY_IDLE, {48000, STEREO_MSB},
+		      NODRIFT, NOCALLBACK, DL1_GAIN_out_labelID, 1,
 		      {
-		       SNK_P, DMAREQ_PORT_PROT, {{
-						 (CBPr_DMA_RTX6*ATC_SIZE),
-						 dmem_vib_dl, dmem_vib_dl_size,
-						 (2*SCHED_LOOP_24kHz),
-						 ABE_DMASTATUS_RAW, (1 << 6)
+		       SRC_P, SERIAL_PORT_PROT, {{
+						 (MCASP1_TX*ATC_SIZE),
+						 dmem_mcasp1, dmem_mcasp1_size,
+						 (2*SCHED_LOOP_48kHz),
 						 } }
 		       },
 		      {CIRCULAR_BUFFER_PERIPHERAL_R__6, 12},
-		      {0}, "VIB_DL"},
+		      {0}, "McASP1"},
 	/* BT_VX_DL */ {
 			OMAP_ABE_PORT_ACTIVITY_IDLE, {8000, MONO_MSB},
 			NODRIFT, NOCALLBACK, smem_bt_vx_dl_opp50, 1,
@@ -266,7 +266,7 @@ const abe_port_t abe_port_init[LAST_PORT_ID] = {
 		       OMAP_ABE_PORT_ACTIVITY_IDLE, {48000, STEREO_MSB},
 		       NODRIFT, NOCALLBACK, 1, 1,
 		       {
-			SRC_P, TDM_SERIAL_PORT_PROT, {{
+			SRC_P, TDM_PORT_PROT, {{
 						      (MCBSP3_DMA_TX *
 						       ATC_SIZE),
 						      dmem_mm_ext_out,
@@ -279,7 +279,7 @@ const abe_port_t abe_port_init[LAST_PORT_ID] = {
 		       OMAP_ABE_PORT_ACTIVITY_IDLE, {48000, STEREO_MSB},
 		       NODRIFT, NOCALLBACK, 1, 1,
 		       {
-			SRC_P, TDM_SERIAL_PORT_PROT, {{
+			SRC_P, TDM_PORT_PROT, {{
 						      (MCBSP3_DMA_RX *
 						       ATC_SIZE),
 						      dmem_mm_ext_in,
@@ -873,7 +873,7 @@ const u32 abe_port_priority[LAST_PORT_ID - 1] = {
 	VX_DL_PORT,
 	BT_VX_DL_PORT,
 	BT_VX_UL_PORT,
-	VIB_DL_PORT,
+	McASP1_PORT,
 };
 /*
  * ABE CONST AREA FOR DMIC DECIMATION FILTERS
