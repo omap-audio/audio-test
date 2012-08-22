@@ -21,24 +21,4 @@ struct abe_firmware {
 	/* TODO: we can split the memory regions to save space */
 };
 
-
-struct abe_coeff_elem {
-
-	const int32_t *coeffs;
-	int size;
-	const char *description;
-};
-
-#define ABE_COEFF(text, c) \
-	{.description = text, \
-	.coeffs = c, \
-	.size = ARRAY_SIZE(c)}
-
-struct abe_coeff {
-	const char *description;
-	int count;
-	struct abe_coeff_elem coeff[];
-};
-
-
 #endif

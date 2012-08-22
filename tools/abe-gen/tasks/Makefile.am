@@ -5,15 +5,14 @@ AM_CFLAGS = \
 
 AM_LDFLAGS = $(NODELETE_LDFLAGS)
 
-#MODULE_LDFLAGS = $(AM_LDFLAGS) -module -disable-static -avoid-version $(LDFLAGS_NOUNDEFINED)
+MODULE_LDFLAGS = $(AM_LDFLAGS) -module -disable-static -avoid-version $(LDFLAGS_NOUNDEFINED)
 
-OMAP4CFLAGS = -I $(LINUX_DIR)/sound/soc/omap/abe
+OMAP4CFLAGS = -I $(HAL_DIR)
 
-
-#dl1dir = $(libdir)/abe/coeffs
-#dl1_LTLIBRARIES = dl1.la
-#dl1_la_SOURCES = dl1.c
-#dl1_la_LDFLAGS = $(MODULE_LDFLAGS)
-#dl1_la_LIBADD = $(MODULE_LIBADD)
-#dl1_la_CFLAGS = $(AM_CFLAGS) $(OMAP4CFLAGS)
+abe009590dir = $(libdir)/abe/
+abe009590_LTLIBRARIES = abe009590.la
+abe009590_la_SOURCES = abe.c
+abe009590_la_LDFLAGS = $(MODULE_LDFLAGS)
+abe009590_la_LIBADD = $(MODULE_LIBADD)
+abe009590_la_CFLAGS = $(AM_CFLAGS) $(OMAP4CFLAGS) -I 009590
 

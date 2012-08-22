@@ -1,5 +1,4 @@
 
-
 AM_CFLAGS = \
 	-I$(top_srcdir)/src \
 	-I$(top_srcdir)/fw
@@ -9,7 +8,6 @@ AM_LDFLAGS = $(NODELETE_LDFLAGS)
 MODULE_LDFLAGS = $(AM_LDFLAGS) -module -disable-static -avoid-version $(LDFLAGS_NOUNDEFINED)
 
 OMAP4CFLAGS = -I $(LINUX_DIR)/sound/soc/omap/abe
-
 
 fw009530dir = $(libdir)/abe/
 fw009530_LTLIBRARIES = fw009530.la
@@ -24,3 +22,10 @@ fw009560_la_SOURCES = fw.c
 fw009560_la_LDFLAGS = $(MODULE_LDFLAGS)
 fw009560_la_LIBADD = $(MODULE_LIBADD)
 fw009560_la_CFLAGS = $(AM_CFLAGS) $(OMAP4CFLAGS) -I 009560
+
+fw009590dir = $(libdir)/abe/
+fw009590_LTLIBRARIES = fw009590.la
+fw009590_la_SOURCES = fw.c
+fw009590_la_LDFLAGS = $(MODULE_LDFLAGS)
+fw009590_la_LIBADD = $(MODULE_LIBADD)
+fw009590_la_CFLAGS = $(AM_CFLAGS) $(OMAP4CFLAGS) -I 009590

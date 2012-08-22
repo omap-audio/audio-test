@@ -44,6 +44,11 @@
 #include <dlfcn.h>
 
 #include "abegen.h"
+#include "abe_mem.h"
+#include "abe-local.h"
+
+int omap_aess_init_asrc_vx_dl(s32 *el, s32 dppm);
+int omap_aess_init_asrc_vx_ul(s32 *el, s32 dppm);
 
 static int abe_dlopen_fw(const char *fw_version)
 {
@@ -88,24 +93,126 @@ out:
 	return ret;
 }
 
-static int abe_dlopen_tasks(const char *fw_version)
+#if 0
+struct omap_aess_mapping {
+	struct omap_aess_addr *map;
+	int map_count;
+
+	u32 *fct_id;
+	int fct_count;
+
+	u32 *label_id;
+	int label_count;
+
+	struct omap_aess_init_task *init_table;
+	int table_count;
+
+	struct omap_aess_port *port;
+	int port_count;
+
+	struct omap_aess_port *ping_pong;
+	struct omap_aess_task *dl1_mono_mixer;
+	struct omap_aess_task *dl2_mono_mixer;
+	struct omap_aess_task *audul_mono_mixer;
+};
+#endif
+
+static int mwrite(int fd, const void *buf, int size)
+{
+	int ret;
+
+	ret = write(fd, buf, size);
+	if (ret < 0) {
+		fprintf(stderr, "failed to write %d bytes\n", size);
+		exit(ret);
+	}
+	return ret;
+}
+
+static int abe_task_gen(struct omap_aess_mapping *m, int fd)
+{
+	s32 data_asrc[55];
+	int offset = 0, i;
+
+	/* write map */
+	fprintf(stdout, "Mem map: %d entries at offset %d\n", m->map_count, offset);
+	offset += mwrite(fd, &m->map_count, sizeof(m->map_count));
+	offset += mwrite(fd, &m->map, sizeof(*m->map) * m->map_count);
+
+	/* write label ids */
+	fprintf(stdout, "Label: %d entries at offset %d\n", m->label_count, offset);
+	offset += mwrite(fd, &m->label_count, sizeof(m->label_count));
+	offset += mwrite(fd, &m->label_id, sizeof(*m->label_id) * m->label_count);
+
+	/* write function ids */
+	fprintf(stdout, "Functions: %d entries at offset %d\n", m->fct_count, offset);
+	offset += mwrite(fd, &m->fct_count, sizeof(m->fct_count));
+	offset += mwrite(fd, &m->fct_id, sizeof(*m->fct_id) * m->fct_count);
+
+	/* write tasks */
+	fprintf(stdout, "Task: %d entries at offset %d\n", m->table_count, offset);
+	offset += mwrite(fd, &m->table_count, sizeof(m->table_count));
+	offset += mwrite(fd, &m->init_table, sizeof(*m->init_table) * m->table_count);
+
+	/* write ports */
+	fprintf(stdout, "Port: %d entries at offset %d\n", m->port_count, offset);
+	offset += mwrite(fd, &m->port_count, sizeof(m->port_count));
+	offset += mwrite(fd, &m->port, sizeof(*m->port) * m->port_count);
+
+	/* ping pong port */
+	fprintf(stdout, "Ping Pong port: at offset %d\n", offset);
+	offset += mwrite(fd, &m->ping_pong, sizeof(*m->ping_pong));	
+
+	/* DL1 port */
+	fprintf(stdout, "DL1 port: at offset %d\n", offset);
+	offset += mwrite(fd, &m->dl1_mono_mixer, sizeof(*m->dl1_mono_mixer));
+
+	/* DL2 port */
+	fprintf(stdout, "DL2 port: at offset %d\n", offset);
+	offset += mwrite(fd, &m->dl2_mono_mixer, sizeof(*m->dl2_mono_mixer));
+
+	/* AUDUL port */
+	fprintf(stdout, "AUDUL port: at offset %d\n", offset);
+	offset += mwrite(fd, &m->audul_mono_mixer, sizeof(*m->audul_mono_mixer));
+
+	/* Voice UL ASRC */
+	i = omap_aess_init_asrc_vx_ul(&data_asrc[0], 0);
+	fprintf(stdout,"ASRC UL: %d at offset %d\n", i, offset);
+	offset += mwrite(fd, &data_asrc[0], sizeof(s32)*i);
+	i = omap_aess_init_asrc_vx_ul(&data_asrc[0], -250);
+	fprintf(stdout,"ASRC UL(-250): %d at %d\n", i, offset);
+	offset += mwrite(fd, &data_asrc[0], sizeof(s32)*i);
+
+	/* Voice DL ASRC */
+	i = omap_aess_init_asrc_vx_dl(&data_asrc[0], 0);
+	fprintf(stdout,"ASRC DL: %d at %d\n", i, offset);
+	offset += mwrite(fd, &data_asrc[0], sizeof(s32)*i);
+	fprintf(stdout,"ASRC DL (250): %d at %d\n", i, offset);
+	i = omap_aess_init_asrc_vx_dl(&data_asrc[0], 250);
+	offset += mwrite(fd, &data_asrc[0], sizeof(s32)*i);
+
+	fprintf(stdout,"Size of ABE configuration: %d bytes\n", offset);
+	return 0;
+}
+
+static int abe_dlopen_tasks(const char *tasks_version)
 {
 	void *plugin_handle;
-	struct abe_firmware *fw;
+	struct omap_aess_mapping *mapping;
 	int ret, fd;
 
-	fprintf(stdout, "Tasks: loading %s\n", fw_version);
+	fprintf(stdout, "Tasks: loading %s\n", tasks_version);
 
 	/* load the plugin */
-	plugin_handle = dlopen(fw_version, RTLD_LAZY);
+	plugin_handle = dlopen(tasks_version, RTLD_LAZY);
 	if (!plugin_handle) {
-		fprintf(stderr, "error: failed to open %s: %s\n", fw_version,
+		fprintf(stderr, "error: failed to open %s: %s\n", tasks_version,
 			dlerror());
 		return -EINVAL;
 	}
 
-	fw = dlsym(plugin_handle, "fw");
-	if (!fw) {
+	mapping = dlsym(plugin_handle, "aess_fw_init");
+	if (!mapping) {
 		fprintf(stderr, "error: failed to get symbol. %s\n",
 			dlerror());
 		dlclose(plugin_handle);
@@ -113,17 +220,17 @@ static int abe_dlopen_tasks(const char *fw_version)
 	}
 
 	/* dump some plugin info */
-	fprintf(stdout, "FW: loaded %d bytes\n", fw->size);
+	//fprintf(stdout, "FW: loaded %d bytes\n", tasks->size);
 	
 	/* save data to FW file */
-	fd = open("omap_abe_tasks", O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
+	fd = open("omap_abe_map", O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
 	if (fd < 0) {
-		fprintf(stderr, "failed to open %s err %d\n", "omap_abe_tasks", fd);
+		fprintf(stderr, "failed to open %s err %d\n", "omap_abe_map", fd);
 		ret = fd;
 		goto out;
 	}
 
-	ret = write(fd, fw->text, fw->size * 4);
+	ret = abe_task_gen(mapping, fd);
 	close(fd);
 
 out:
