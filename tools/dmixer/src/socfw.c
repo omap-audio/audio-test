@@ -91,7 +91,13 @@ int main(int argc, char *argv[])
 			socfw_import_vendor(soc_fw, argv[i], SND_SOC_FILE_VENDOR_CODEC);
 			continue;
 		}
+		if (!strcmp("-vcn", argv[i])) {
+			if (++i == argc)
+				usage(argv[0]);
 
+			socfw_import_vendor(soc_fw, argv[i], SND_SOC_FILE_VENDOR_CONFIG);
+			continue;
+		}
 	}
 
 	socfw_free(soc_fw);

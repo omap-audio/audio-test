@@ -599,7 +599,7 @@ int socfw_import_vendor(struct soc_fw_priv *soc_fw, const char *name, int type)
 	if (size <= 0)
 		return size;
 
-	verbose(soc_fw, "vendor: file size is %d bytes\n", size);
+	verbose(soc_fw, " vendor: file size is %d bytes\n", size);
 
 	err = write_header(soc_fw, type, 0, 0, size);
 	if (err < 0)

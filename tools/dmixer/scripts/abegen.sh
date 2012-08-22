@@ -14,4 +14,5 @@ ABE_GEN_PATH=../abe-gen
 	-p $COEFF_PATH/dmic.so \
 	-p $COEFF_PATH/amic.so \
 	-p $DAPM_PATH/abe-dl1dl2-twl6040.so \
-	-vfw $ABE_GEN_PATH/omap_abe_fw
+	-vfw $ABE_GEN_PATH/omap_abe_fw \
+	-vcn $ABE_GEN_PATH/omap_abe_map
