@@ -140,19 +140,23 @@ static int abe_task_gen(struct omap_aess_mapping *m, int fd)
 	offset += mwrite(fd, m->port, sizeof(*m->port) * m->port_count);
 
 	/* ping pong port */
-	fprintf(stdout, "Ping Pong port: at offset %d\n", offset);
+	fprintf(stdout, "Ping Pong port: at offset %d bytes %d\n",
+		offset, offset * 4);
 	offset += mwrite(fd, m->ping_pong, sizeof(*m->ping_pong));	
 
 	/* DL1 port */
-	fprintf(stdout, "DL1 port: at offset %d\n", offset);
+	fprintf(stdout, "DL1 port: at offset %d offset %d\n",
+		offset, offset * 4);
 	offset += mwrite(fd, m->dl1_mono_mixer, sizeof(*m->dl1_mono_mixer));
 
 	/* DL2 port */
-	fprintf(stdout, "DL2 port: at offset %d\n", offset);
+	fprintf(stdout, "DL2 port: at offset %d bytes %d\n",
+		offset, offset * 4);
 	offset += mwrite(fd, m->dl2_mono_mixer, sizeof(*m->dl2_mono_mixer));
 
 	/* AUDUL port */
-	fprintf(stdout, "AUDUL port: at offset %d\n", offset);
+	fprintf(stdout, "AUDUL port: at offset %d bytes %d\n",
+		offset, offset * 4);
 	offset += mwrite(fd, m->audul_mono_mixer, sizeof(*m->audul_mono_mixer));
 
 	/* Voice UL ASRC */
