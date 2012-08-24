@@ -116,7 +116,7 @@ static int abe_task_gen(struct omap_aess_mapping *m, int fd)
 	offset += mwrite(fd, m->map, sizeof(struct omap_aess_addr) * m->map_count);
 
 	/* write label ids */
-	fprintf(stdout, "Label: %d entries of size %ld at offset %d bytes\n",
+	fprintf(stdout, "Label: %d entries of size %ld at offset %d bytes %d\n",
 		m->label_count, sizeof(*m->label_id), offset, offset * 4);
 	offset += mwrite(fd, &m->label_count, sizeof(m->label_count));
 	offset += mwrite(fd, m->label_id, sizeof(*m->label_id) * m->label_count);
@@ -137,23 +137,23 @@ static int abe_task_gen(struct omap_aess_mapping *m, int fd)
 	fprintf(stdout, "Port: %d entries of size %d at offset %d bytes %d\n",
 		m->port_count, sizeof(*m->port), offset, offset * 4);
 	offset += mwrite(fd, &m->port_count, sizeof(m->port_count));
-	offset += mwrite(fd, &m->port, sizeof(*m->port) * m->port_count);
+	offset += mwrite(fd, m->port, sizeof(*m->port) * m->port_count);
 
 	/* ping pong port */
 	fprintf(stdout, "Ping Pong port: at offset %d\n", offset);
-	offset += mwrite(fd, &m->ping_pong, sizeof(*m->ping_pong));	
+	offset += mwrite(fd, m->ping_pong, sizeof(*m->ping_pong));	
 
 	/* DL1 port */
 	fprintf(stdout, "DL1 port: at offset %d\n", offset);
-	offset += mwrite(fd, &m->dl1_mono_mixer, sizeof(*m->dl1_mono_mixer));
+	offset += mwrite(fd, m->dl1_mono_mixer, sizeof(*m->dl1_mono_mixer));
 
 	/* DL2 port */
 	fprintf(stdout, "DL2 port: at offset %d\n", offset);
-	offset += mwrite(fd, &m->dl2_mono_mixer, sizeof(*m->dl2_mono_mixer));
+	offset += mwrite(fd, m->dl2_mono_mixer, sizeof(*m->dl2_mono_mixer));
 
 	/* AUDUL port */
 	fprintf(stdout, "AUDUL port: at offset %d\n", offset);
-	offset += mwrite(fd, &m->audul_mono_mixer, sizeof(*m->audul_mono_mixer));
+	offset += mwrite(fd, m->audul_mono_mixer, sizeof(*m->audul_mono_mixer));
 
 	/* Voice UL ASRC */
 	i = omap_aess_init_asrc_vx_ul(&data_asrc[0], 0);
