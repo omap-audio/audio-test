@@ -2,7 +2,7 @@
 COMPATNUM=@LIBTOOL_VERSION_INFO@
 
 AM_CFLAGS = \
-	-I$(top_srcdir)/src
+	-I$(top_srcdir)/src -Wall -Werror
 
 bin_PROGRAMS = socfw
 

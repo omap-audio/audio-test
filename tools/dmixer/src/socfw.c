@@ -47,7 +47,7 @@ static void usage(char *name)
 int main(int argc, char *argv[])
 {
 	struct soc_fw_priv *soc_fw;
-	int i, ret;
+	int i;
 	
 	if (argc < 4)
 		usage(argv[0]);

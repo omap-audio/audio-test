@@ -106,7 +106,7 @@ static int import_mixer(struct soc_fw_priv *soc_fw,
 
 	memset(&mc, 0, sizeof(mc));
 
-	strncpy(mc.hdr.name, kcontrol->name, SND_SOC_FILE_TEXT_SIZE);
+	strncpy(mc.hdr.name, (const char*)kcontrol->name, SND_SOC_FILE_TEXT_SIZE);
 	mc.hdr.type = SND_SOC_FILE_MIXER_VALUE;
 	mc.min = mixer->min;
 	mc.max = mixer->max;
@@ -152,7 +152,6 @@ static int import_enum_control(struct soc_fw_priv *soc_fw,
 	struct soc_enum *menum =
 		(struct soc_enum *)kcontrol->private_value;
 	size_t bytes;
-	int err;
 
 	memset(&ec, 0, sizeof(ec));
 
@@ -162,7 +161,7 @@ static int import_enum_control(struct soc_fw_priv *soc_fw,
 		return -EINVAL;;
 	}
 
-	strncpy(ec.hdr.name, kcontrol->name, SND_SOC_FILE_TEXT_SIZE);
+	strncpy(ec.hdr.name, (const char*)kcontrol->name, SND_SOC_FILE_TEXT_SIZE);
 	ec.hdr.type = SND_SOC_FILE_MIXER_ENUM;
 	ec.mask = menum->mask;
 	ec.max = menum->max;
@@ -191,7 +190,7 @@ int socfw_import_controls(struct soc_fw_priv *soc_fw,
 	struct snd_soc_file_kcontrol kc;
 	int i, mixers = 0, enums = 0;
 	size_t bytes, size = sizeof(struct snd_soc_file_kcontrol);
-	int err, last = -1;
+	int err;
 
 	if (kcontrol_count == 0)
 		return 0;
@@ -642,7 +641,6 @@ int socfw_import_vendor(struct soc_fw_priv *soc_fw, const char *name, int type)
 int socfw_import_plugin(struct soc_fw_priv *soc_fw, const char *name)
 {
 	struct snd_soc_fw_plugin *plugin;
-	size_t size;
 	void *plugin_handle;
 	int ret;
 
