@@ -44,7 +44,6 @@
 #include <dlfcn.h>
 
 #include "abegen.h"
-#include "abe_mem.h"
 #include "abe-local.h"
 
 int omap_aess_init_asrc_vx_dl(s32 *el, s32 dppm);
@@ -93,30 +92,6 @@ out:
 	return ret;
 }
 
-#if 0
-struct omap_aess_mapping {
-	struct omap_aess_addr *map;
-	int map_count;
-
-	u32 *fct_id;
-	int fct_count;
-
-	u32 *label_id;
-	int label_count;
-
-	struct omap_aess_init_task *init_table;
-	int table_count;
-
-	struct omap_aess_port *port;
-	int port_count;
-
-	struct omap_aess_port *ping_pong;
-	struct omap_aess_task *dl1_mono_mixer;
-	struct omap_aess_task *dl2_mono_mixer;
-	struct omap_aess_task *audul_mono_mixer;
-};
-#endif
-
 static int mwrite(int fd, const void *buf, int size)
 {
 	int ret;
@@ -126,7 +101,7 @@ static int mwrite(int fd, const void *buf, int size)
 		fprintf(stderr, "failed to write %d bytes\n", size);
 		exit(ret);
 	}
-	return ret;
+	return ret / 4;
 }
 
 static int abe_task_gen(struct omap_aess_mapping *m, int fd)
@@ -135,27 +110,32 @@ static int abe_task_gen(struct omap_aess_mapping *m, int fd)
 	int offset = 0, i;
 
 	/* write map */
-	fprintf(stdout, "Mem map: %d entries at offset %d\n", m->map_count, offset);
+	fprintf(stdout, "Mem map: %d entries of size %ld at offset %d bytes %d\n",
+		m->map_count, sizeof(*m->map), offset, offset * 4);
 	offset += mwrite(fd, &m->map_count, sizeof(m->map_count));
-	offset += mwrite(fd, &m->map, sizeof(*m->map) * m->map_count);
+	offset += mwrite(fd, m->map, sizeof(struct omap_aess_addr) * m->map_count);
 
 	/* write label ids */
-	fprintf(stdout, "Label: %d entries at offset %d\n", m->label_count, offset);
+	fprintf(stdout, "Label: %d entries of size %ld at offset %d bytes\n",
+		m->label_count, sizeof(*m->label_id), offset, offset * 4);
 	offset += mwrite(fd, &m->label_count, sizeof(m->label_count));
-	offset += mwrite(fd, &m->label_id, sizeof(*m->label_id) * m->label_count);
+	offset += mwrite(fd, m->label_id, sizeof(*m->label_id) * m->label_count);
 
 	/* write function ids */
-	fprintf(stdout, "Functions: %d entries at offset %d\n", m->fct_count, offset);
+	fprintf(stdout, "Functions: %d entries of size %ld at offset %d bytes %d\n",
+		m->fct_count, sizeof(*m->fct_id), offset, offset * 4);
 	offset += mwrite(fd, &m->fct_count, sizeof(m->fct_count));
-	offset += mwrite(fd, &m->fct_id, sizeof(*m->fct_id) * m->fct_count);
+	offset += mwrite(fd, m->fct_id, sizeof(*m->fct_id) * m->fct_count);
 
 	/* write tasks */
-	fprintf(stdout, "Task: %d entries at offset %d\n", m->table_count, offset);
+	fprintf(stdout, "Task: %d entries of size %ld at offset %d bytes\n",
+		m->table_count, sizeof(*m->init_table), offset, offset * 4);
 	offset += mwrite(fd, &m->table_count, sizeof(m->table_count));
-	offset += mwrite(fd, &m->init_table, sizeof(*m->init_table) * m->table_count);
+	offset += mwrite(fd, m->init_table, sizeof(*m->init_table) * m->table_count);
 
 	/* write ports */
-	fprintf(stdout, "Port: %d entries at offset %d\n", m->port_count, offset);
+	fprintf(stdout, "Port: %d entries of size %d at offset %d bytes %d\n",
+		m->port_count, sizeof(*m->port), offset, offset * 4);
 	offset += mwrite(fd, &m->port_count, sizeof(m->port_count));
 	offset += mwrite(fd, &m->port, sizeof(*m->port) * m->port_count);
 
@@ -191,7 +171,7 @@ static int abe_task_gen(struct omap_aess_mapping *m, int fd)
 	i = omap_aess_init_asrc_vx_dl(&data_asrc[0], 250);
 	offset += mwrite(fd, &data_asrc[0], sizeof(s32)*i);
 
-	fprintf(stdout,"Size of ABE configuration: %d bytes\n", offset);
+	fprintf(stdout,"Size of ABE configuration: %d bytes\n", offset * 4);
 	return 0;
 }
 

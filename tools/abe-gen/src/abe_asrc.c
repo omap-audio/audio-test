@@ -60,14 +60,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "../abe/abe_hal/abe_define.h"
-#include "abe_typedef.h"
-#include "../abe/abe_hal/abe_initxxx_labels.h"
-#include "../abe/abe_hal/abe_dm_linux.h"
-#include "../abe/abe_hal/abe_sm_linux.h"
-#include "../abe/abe_hal/abe_cm_linux.h"
+#include <abegen.h>
 
-#include "abe_mem.h"
+/* kernel ABE header */
+#include <sound/soc/omap/abe/abe_typedef.h>
+
+/* abe HAL non kernel headers, we should be using kernel headers here ?? */
+#include <abe_hal/abe_define.h>
+#include <abe_hal/abe_initxxx_labels.h>
+#include <abe_hal/abe_dm_linux.h>
+#include <abe_hal/abe_sm_linux.h>
+#include <abe_hal/abe_cm_linux.h>
+
 #include "abe-local.h"
 
 #if 0

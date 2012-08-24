@@ -56,20 +56,21 @@
  *
  */
 
-#include "abe_hal/abe_cm_linux.h"
-#include "abe_hal/abe_dm_linux.h"
-#include "abe_hal/abe_sm_linux.h"
-#include "abe_hal/abe_functionsid.h"
-#include "abe_hal/abe_define.h"
-#include "abe_hal/abe_def.h"
-#include "abe_hal/abe_initxxx_labels.h"
-#include "abe_hal/abe_taskid.h"
+#include <abegen.h>
 
-#include "abe_mem.h"
+#include <abe_hal/abe_cm_linux.h>
+#include <abe_hal/abe_dm_linux.h>
+#include <abe_hal/abe_sm_linux.h>
+#include <abe_hal/abe_functionsid.h>
+#include <abe_hal/abe_define.h>
+#include <abe_hal/abe_def.h>
+#include <abe_hal/abe_initxxx_labels.h>
+#include <abe_hal/abe_taskid.h>
+
+#include <sound/soc/omap/abe/abe_typedef.h>
+#include <sound/soc/omap/abe/abe_typ.h>
+
 #include "abe-local.h"
-#include "abe_typedef.h"
-#include "abe_typ.h"
-
 
 #define ABE_TASK_ID(ID) (OMAP_ABE_D_TASKSLIST_ADDR + sizeof(ABE_STask)*(ID))
 
