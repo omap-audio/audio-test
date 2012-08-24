@@ -67,13 +67,13 @@ struct omap_aess_mapping {
 	const struct omap_aess_addr *map;
 	u32 map_count;
 
-	const int *fct_id;
+	const u32 *fct_id;
 	u32 fct_count;
 
-	const int *label_id;
+	const u32 *label_id;
 	u32 label_count;
 
-	const struct omap_aess_init_task *init_table;
+	const struct omap_aess_task *init_table;
 	u32 table_count;
 
 	const struct omap_aess_port *port;

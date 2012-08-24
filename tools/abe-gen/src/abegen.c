@@ -128,13 +128,13 @@ static int abe_task_gen(struct omap_aess_mapping *m, int fd)
 	offset += mwrite(fd, m->fct_id, sizeof(*m->fct_id) * m->fct_count);
 
 	/* write tasks */
-	fprintf(stdout, "Task: %d entries of size %ld at offset %d bytes\n",
+	fprintf(stdout, "Task: %d entries of size %ld at offset %d bytes %d\n",
 		m->table_count, sizeof(*m->init_table), offset, offset * 4);
 	offset += mwrite(fd, &m->table_count, sizeof(m->table_count));
 	offset += mwrite(fd, m->init_table, sizeof(*m->init_table) * m->table_count);
 
 	/* write ports */
-	fprintf(stdout, "Port: %d entries of size %d at offset %d bytes %d\n",
+	fprintf(stdout, "Port: %d entries of size %ld at offset %d bytes %d\n",
 		m->port_count, sizeof(*m->port), offset, offset * 4);
 	offset += mwrite(fd, &m->port_count, sizeof(m->port_count));
 	offset += mwrite(fd, m->port, sizeof(*m->port) * m->port_count);
@@ -199,9 +199,6 @@ static int abe_dlopen_tasks(const char *tasks_version)
 		return -EINVAL;
 	}
 
-	/* dump some plugin info */
-	//fprintf(stdout, "FW: loaded %d bytes\n", tasks->size);
-	
 	/* save data to FW file */
 	fd = open("omap_abe_map", O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
 	if (fd < 0) {
@@ -229,7 +226,7 @@ static void usage(char *name)
 
 int main(int argc, char *argv[])
 {
-	int i, ret;
+	int i;
 	
 	if (argc < 2)
 		usage(argv[0]);

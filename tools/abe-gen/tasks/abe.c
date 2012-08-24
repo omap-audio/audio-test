@@ -12,7 +12,7 @@ const struct omap_aess_mapping aess_fw_init = {
 	.label_id	= omap_label_id,
 	.label_count	= ARRAY_SIZE(omap_label_id),
 
-	.init_table	= &init_table,
+	.init_table	= init_table,
 	.table_count	= ARRAY_SIZE(init_table),
 
 	.port		= abe_port_init,
