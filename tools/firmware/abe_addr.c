@@ -1074,7 +1074,7 @@ struct omap_aess_port abe_port_init[LAST_PORT_ID] = {
 				/* BT-UL 16 kHz */
 				.task = {
 					.nb_task = 1,
-					.smem = BT_DL_16k_labelID,
+					.smem = BT_UL_16k_labelID,
 					.task = {
 						{
 							.frame = 17,
