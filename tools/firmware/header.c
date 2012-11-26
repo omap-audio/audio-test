@@ -396,6 +396,7 @@ int main(int argc, char *argv[])
 	uint32_t nb_label_id;	/* Number of buffer descriptor */
 	uint32_t nb_fct_id;	/* Number of Copy function */
 	uint32_t nb_task_id;	/* Number of init task */
+	uint32_t nb_port_id;	/* Number of port */
 
 	char *buf;
 
@@ -436,7 +437,7 @@ int main(int argc, char *argv[])
 
 	hdr.firmware_version = ABE_FIRMWARE_VERSION;
 	hdr.firmware_size = sizeof(firmware);
-	hdr.fw_header_size = 10428;
+	hdr.fw_header_size = 6304;
 	hdr.coeff_version = ABE_COEFF_VERSION;
 	offset = sizeof(hdr) + NUM_EQUALIZERS * sizeof(struct config);
 
@@ -476,63 +477,66 @@ int main(int argc, char *argv[])
 	/* Store current offset */
 	abe_size = offset;
 
-	printf("Mem: %d %d\n", nb_mem_id, offset - abe_size);
+	printf("Mem: %d %x\n", nb_mem_id, offset - abe_size);
 	memcpy(buf + offset, &nb_mem_id, sizeof(nb_mem_id));
 	offset += sizeof(nb_mem_id);
 	memcpy(buf + offset, omap_aess_map, sizeof(struct omap_aess_addr) * OMAP_AESS_MEM_ID_SIZE);
 	offset += sizeof(struct omap_aess_addr) * OMAP_AESS_MEM_ID_SIZE;
 
-	printf("Label: %d %d\n", nb_label_id, offset - abe_size);
+	printf("Label: %d %x\n", nb_label_id, offset - abe_size);
 	memcpy(buf + offset, &nb_label_id, sizeof(nb_label_id));
 	offset += sizeof(nb_label_id);
 	memcpy(buf + offset, omap_label_id, sizeof(int) * OMAP_AESS_BUFFER_ID_SIZE);
 	offset += sizeof(int) * OMAP_AESS_BUFFER_ID_SIZE;
 
-	printf("Fct: %d %d\n", nb_fct_id, offset - abe_size);
+	printf("Fct: %d %x\n", nb_fct_id, offset - abe_size);
 	memcpy(buf + offset, &nb_fct_id, sizeof(nb_fct_id));
 	offset += sizeof(nb_fct_id);
 	memcpy(buf + offset, omap_function_id, sizeof(int) * OMAP_AESS_COPY_FCT_ID_SIZE);
 	offset += sizeof(int) * OMAP_AESS_COPY_FCT_ID_SIZE;
 
 
-	printf("Task: %d %d\n", nb_task_id, offset - abe_size);
+	printf("Task: %d %x\n", nb_task_id, offset - abe_size);
 	memcpy(buf + offset, &nb_task_id, sizeof(nb_task_id));
 	offset += sizeof(nb_task_id);
 	memcpy(buf + offset, aess_init_table.task, sizeof(struct omap_aess_task) * aess_init_table.nb_task);
 	offset += sizeof(struct omap_aess_task) * aess_init_table.nb_task;
 
-	printf("Port: %d %d\n", nb_task_id, offset - abe_size);
+	nb_port_id = LAST_PORT_ID;
+	memcpy(buf + offset, &nb_port_id, sizeof(nb_port_id));
+	offset += sizeof(nb_port_id);
+	printf("Port: %d %x\n", nb_port_id, offset - abe_size);
 	memcpy(buf + offset, abe_port_init, sizeof(abe_port_init));
 	offset += sizeof(abe_port_init);
 
-	printf("PP: %d %d\n", nb_task_id, offset - abe_size);
+	printf("PP: %d %x\n", 1, offset - abe_size);
 	memcpy(buf + offset, &abe_port_init_pp, sizeof(abe_port_init_pp));
 	offset += sizeof(abe_port_init_pp);
 
-	printf("DL1: %d %d\n", nb_task_id, offset - abe_size);
+	printf("DL1: %d %x\n", 2, offset - abe_size);
 	memcpy(buf + offset, aess_dl1_mono_mixer, sizeof(aess_dl1_mono_mixer));
 	offset += sizeof(aess_dl1_mono_mixer);
-	printf("DL2: %d %d\n", nb_task_id, offset - abe_size);
+	printf("DL2: %d %x\n", 2, offset - abe_size);
 	memcpy(buf + offset, aess_dl2_mono_mixer, sizeof(aess_dl2_mono_mixer));
 	offset += sizeof(aess_dl2_mono_mixer);
-	printf("AUDUL: %d %d\n", nb_task_id, offset - abe_size);
+	printf("AUDUL: %d %x\n", 2, offset - abe_size);
 	memcpy(buf + offset, aess_audul_mono_mixer, sizeof(aess_audul_mono_mixer));
 	offset += sizeof(aess_audul_mono_mixer);
 
 	i = omap_aess_init_asrc_vx_ul(&data_asrc[0], 0);
-	printf("ASRC UL: %d %d\n", i, offset - abe_size);
+	printf("ASRC UL: %d %x\n", i, offset - abe_size);
 	memcpy(buf + offset, &data_asrc[0], sizeof(s32)*i);
 	offset += sizeof(s32)*i;
 	i = omap_aess_init_asrc_vx_ul(&data_asrc[0], -250);
-	printf("ASRC UL(-250): %d %d\n", i, offset - abe_size);
+	printf("ASRC UL(-250): %d %x\n", i, offset - abe_size);
 	memcpy(buf + offset, &data_asrc[0], sizeof(s32)*i);
 	offset += sizeof(s32)*i;
 
 	i = omap_aess_init_asrc_vx_dl(&data_asrc[0], 0);
-	printf("ASRC DL: %d %d\n", i, offset - abe_size);
+	printf("ASRC DL: %d %x\n", i, offset - abe_size);
 	memcpy(buf + offset, &data_asrc[0], sizeof(s32)*i);
 	offset += sizeof(s32)*i;
-	printf("ASRC DL (250): %d %d\n", i, offset - abe_size);
+	printf("ASRC DL (250): %d %x\n", i, offset - abe_size);
 	i = omap_aess_init_asrc_vx_dl(&data_asrc[0], 250);
 	memcpy(buf + offset, &data_asrc[0], sizeof(s32)*i);
 	offset += sizeof(s32)*i;
