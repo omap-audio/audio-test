@@ -287,6 +287,7 @@ const int32_t sdt_equ_coeffs[][SDT_COEFF] = {
 
 struct config {
 	char name[NAME_SIZE];
+	uint32_t id;
 	uint32_t count;
 	uint32_t coeff;
 	char texts[NUM_TEXTS][TEXT_SIZE];
@@ -316,6 +317,7 @@ struct header hdr = {
 	 */
 	.equ	= {{
 		.name = "DL1 Equalizer",
+		.id = OMAP_AESS_CMEM_DL1_COEFS_ID,
 		.count = NUM_PROFILES(dl1_equ_coeffs),
 		.coeff = NUM_COEFFS(dl1_equ_coeffs),
 		.texts	= {
@@ -327,6 +329,7 @@ struct header hdr = {
 		},},
 		{
 		.name = "DL2 Left Equalizer",
+		.id = OMAP_AESS_CMEM_DL2_L_COEFS_ID,
 		.count = NUM_PROFILES(dl2l_equ_coeffs),
 		.coeff = NUM_COEFFS(dl2l_equ_coeffs),
 		.texts	= {
@@ -338,6 +341,7 @@ struct header hdr = {
 		},},
 		{
 		.name = "DL2 Right Equalizer",
+		.id = OMAP_AESS_CMEM_DL2_R_COEFS_ID,
 		.count = NUM_PROFILES(dl2r_equ_coeffs),
 		.coeff = NUM_COEFFS(dl2r_equ_coeffs),
 		.texts	= {
@@ -349,6 +353,7 @@ struct header hdr = {
 		},},
 		{
 		.name = "Sidetone Equalizer",
+		.id = OMAP_AESS_CMEM_SDT_COEFS_ID,
 		.count = NUM_PROFILES(sdt_equ_coeffs),
 		.coeff = NUM_COEFFS(sdt_equ_coeffs),
 		.texts	= {
@@ -359,6 +364,7 @@ struct header hdr = {
 		},},
 		{
 		.name = "AMIC Equalizer",
+		.id = OMAP_AESS_CMEM_96_48_AMIC_COEFS_ID,
 		.count = NUM_PROFILES(amic_equ_coeffs),
 		.coeff = NUM_COEFFS(amic_equ_coeffs),
 		.texts	= {
@@ -368,6 +374,7 @@ struct header hdr = {
 		},},
 		{
 		.name = "DMIC Equalizer",
+		.id = OMAP_AESS_CMEM_96_48_DMIC_COEFS_ID,
 		.count = NUM_PROFILES(dmic_equ_coeffs),
 		.coeff = NUM_COEFFS(dmic_equ_coeffs),
 		.texts	= {
